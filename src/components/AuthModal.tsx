@@ -4,34 +4,34 @@ import {
   Mail,
   Lock,
   User,
-  Sparkles,
   ArrowRight,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
   Eye,
   EyeOff,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
 } from 'lucide-react';
 import { signUpWithEmail, signInWithEmail } from '../services/supabase';
 import { LuminaUser } from '../types/study';
+import LuminaLogo from './LuminaLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAuthSuccess: (user: LuminaUser) => void;
-  initialMode?: 'signin' | 'signup';
+  defaultMode?: 'signin' | 'signup';
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onAuthSuccess,
-  initialMode = 'signin',
+  defaultMode = 'signin',
 }) => {
-  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
-  const [fullName, setFullName] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -44,50 +44,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
     setSuccessNotice(null);
-
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage('Please fill in all required fields.');
-      return;
-    }
-
-    if (mode === 'signup' && !fullName.trim()) {
-      setErrorMessage('Please enter your full name for your study profile.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters long.');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
       if (mode === 'signup') {
-        const res = await signUpWithEmail(email, password, fullName);
-        if (res.error) {
-          setErrorMessage(res.error);
-        } else if (res.user) {
-          setSuccessNotice(`Account created successfully! Welcome, ${res.user.fullName}.`);
+        if (!fullName.trim()) {
+          setErrorMessage('Please provide your full name.');
+          setIsLoading(false);
+          return;
+        }
+
+        const { user, error } = await signUpWithEmail(email, password, fullName);
+        if (error) throw error;
+        if (user) {
+          setSuccessNotice('Account created successfully! Welcome to LUMINA.');
           setTimeout(() => {
-            onAuthSuccess(res.user!);
+            onAuthSuccess(user);
             onClose();
-          }, 800);
+          }, 600);
+        } else {
+          setSuccessNotice('Registration received! You can now log in.');
+          setMode('signin');
         }
       } else {
-        const res = await signInWithEmail(email, password);
-        if (res.error) {
-          setErrorMessage(res.error);
-        } else if (res.user) {
-          setSuccessNotice(`Welcome back, ${res.user.fullName}!`);
+        const { user, error } = await signInWithEmail(email, password);
+        if (error) throw error;
+        if (user) {
+          setSuccessNotice(`Welcome back, ${user.fullName || 'Scholar'}!`);
           setTimeout(() => {
-            onAuthSuccess(res.user!);
+            onAuthSuccess(user);
             onClose();
-          }, 700);
+          }, 500);
         }
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Authentication failed';
+      console.error('Auth error:', err);
+      const msg = err instanceof Error ? err.message : 'Authentication failed. Please check credentials.';
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
@@ -96,9 +88,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden">
+      <div className="relative w-full max-w-md bg-neutral-900 border border-[#34495E]/80 rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden">
         {/* Ambient Top Glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-20 bg-[#8E44AD]/20 rounded-full blur-3xl pointer-events-none" />
 
         {/* Close Button */}
         <button
@@ -110,10 +102,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Header Icon & Title */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-400 p-[1px] mb-3 shadow-lg shadow-indigo-500/20">
-            <div className="w-full h-full bg-neutral-950 rounded-[15px] flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-indigo-400" />
-            </div>
+          <div className="mb-3 flex justify-center">
+            <LuminaLogo size={80} showText={false} />
           </div>
           <h2 className="text-xl font-bold text-neutral-100 tracking-tight">
             {mode === 'signup' ? 'Create Your LUMINA Account' : 'Welcome Back to LUMINA'}
@@ -126,7 +116,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-2 p-1 bg-neutral-950 rounded-2xl border border-neutral-800/80 mb-5 text-xs font-semibold">
+        <div className="grid grid-cols-2 p-1 bg-neutral-950 rounded-2xl border border-[#34495E]/60 mb-5 text-xs font-semibold">
           <button
             type="button"
             onClick={() => {
@@ -135,7 +125,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`py-2 rounded-xl transition ${
               mode === 'signin'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-[#8E44AD] text-white shadow-sm shadow-[#8E44AD]/30'
                 : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
@@ -149,7 +139,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             }}
             className={`py-2 rounded-xl transition ${
               mode === 'signup'
-                ? 'bg-indigo-600 text-white shadow-sm'
+                ? 'bg-[#8E44AD] text-white shadow-sm shadow-[#8E44AD]/30'
                 : 'text-neutral-400 hover:text-neutral-200'
             }`}
           >
@@ -166,8 +156,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         )}
 
         {successNotice && (
-          <div className="mb-4 p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/50 text-emerald-300 text-xs flex items-center gap-2 animate-in fade-in duration-150">
-            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          <div className="mb-4 p-3 rounded-xl bg-[#2ECC71]/15 border border-[#2ECC71]/40 text-emerald-200 text-xs flex items-center gap-2 animate-in fade-in duration-150">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-[#2ECC71]" />
             <span>{successNotice}</span>
           </div>
         )}
@@ -187,7 +177,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   placeholder="e.g. Kehinde Ashade"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-indigo-500 transition"
+                  className="w-full pl-10 pr-4 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
                 />
               </div>
             </div>
@@ -205,7 +195,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-indigo-500 transition"
+                className="w-full pl-10 pr-4 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
               />
             </div>
           </div>
@@ -222,7 +212,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-neutral-950 border border-neutral-800 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-indigo-500 transition"
+                className="w-full pl-10 pr-10 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
               />
               <button
                 type="button"
@@ -233,21 +223,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </button>
             </div>
             {mode === 'signup' && (
-              <p className="text-[10px] text-neutral-500 mt-1">
+              <p className="text-[10px] text-neutral-400 mt-1">
                 At least 6 characters. Stored securely with Supabase Auth encryption.
               </p>
             )}
           </div>
 
-          {/* Submit Button */}
+          {/* Submit Button (Deep Violet #8E44AD) */}
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full mt-2 py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 transition active:scale-[0.98] disabled:opacity-50"
+            className="w-full mt-2 py-3 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#8E44AD]/30 transition active:scale-[0.98] disabled:opacity-50"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin text-[#F1C40F]" />
                 <span>{mode === 'signup' ? 'Creating Account...' : 'Signing In...'}</span>
               </>
             ) : (

@@ -1,10 +1,8 @@
 import React from 'react';
 import {
-  FileText,
   Layers,
   HelpCircle,
   Clock,
-  Sparkles,
   ArrowRight,
   Plus,
 } from 'lucide-react';
@@ -55,8 +53,8 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
     <div className="mb-8">
       <div className="flex items-center justify-between mb-3.5">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-            <Clock className="w-4 h-4" />
+          <div className="p-1.5 rounded-lg bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30">
+            <Clock className="w-4 h-4 text-[#F1C40F]" />
           </div>
           <div>
             <h3 className="text-sm font-bold text-neutral-100">Recent Files</h3>
@@ -68,7 +66,7 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
 
         <button
           onClick={() => onNavigateToTab('documents')}
-          className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition"
+          className="text-xs font-semibold text-[#a569bd] hover:text-[#8E44AD] flex items-center gap-1 transition"
         >
           <span>View All ({materials.length})</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -83,43 +81,43 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
             <div
               key={mat.id}
               onClick={() => onSelectMaterial(mat)}
-              className={`group relative p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
+              className={`group relative p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between shadow-sm ${
                 isActive
-                  ? 'bg-neutral-900 border-indigo-500/60 shadow-lg shadow-indigo-500/10'
-                  : 'bg-neutral-900/70 hover:bg-neutral-900 border-neutral-800 hover:border-neutral-700'
+                  ? 'bg-neutral-900 border-[#8E44AD] shadow-lg shadow-[#8E44AD]/15 ring-1 ring-[#8E44AD]/40'
+                  : 'bg-neutral-900/70 hover:bg-neutral-900 border-[#34495E]/60 hover:border-[#8E44AD]/60'
               }`}
             >
               <div>
                 {/* Header Badge & Time */}
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 truncate max-w-[120px]">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30 truncate max-w-[120px]">
                     {mat.subject}
                   </span>
-                  <span className="text-[10px] text-neutral-500 font-mono shrink-0">
+                  <span className="text-[10px] text-neutral-400 font-mono shrink-0">
                     {formatRelativeTime(mat.lastAccessedAt || mat.updatedAt)}
                   </span>
                 </div>
 
                 {/* Title */}
-                <h4 className="text-xs font-bold text-neutral-100 group-hover:text-indigo-300 transition line-clamp-1">
+                <h4 className="text-xs font-bold text-neutral-100 group-hover:text-[#F1C40F] transition line-clamp-1">
                   {mat.title}
                 </h4>
 
                 {/* Summary Excerpt */}
-                <p className="text-[11px] text-neutral-400 line-clamp-2 mt-1 leading-relaxed">
+                <p className="text-[11px] text-neutral-300 line-clamp-2 mt-1 leading-relaxed">
                   {mat.summary || 'AI-synthesized notes, active recall flashcards, and practice quiz.'}
                 </p>
               </div>
 
               {/* Stats & Quick Actions */}
-              <div className="mt-3.5 pt-2.5 border-t border-neutral-800/80 flex items-center justify-between text-[10px] text-neutral-400">
+              <div className="mt-3.5 pt-2.5 border-t border-[#34495E]/50 flex items-center justify-between text-[10px] text-neutral-400">
                 <div className="flex items-center gap-2 font-mono">
-                  <span className="flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-indigo-400" />
+                  <span className="flex items-center gap-1 text-[#F1C40F] font-semibold">
+                    <Layers className="w-3 h-3 text-[#a569bd]" />
                     {mat.flashcards.length}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <HelpCircle className="w-3 h-3 text-cyan-400" />
+                  <span className="flex items-center gap-1 text-[#2ECC71] font-semibold">
+                    <HelpCircle className="w-3 h-3 text-[#2ECC71]" />
                     {mat.quiz.length}
                   </span>
                 </div>
@@ -131,7 +129,7 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
                       onSelectMaterial(mat);
                       onNavigateToTab('notes');
                     }}
-                    className="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-indigo-600 text-neutral-300 hover:text-white transition font-medium"
+                    className="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-[#8E44AD] text-neutral-200 hover:text-white transition font-medium"
                   >
                     Notes
                   </button>
@@ -141,7 +139,7 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
                       onSelectMaterial(mat);
                       onNavigateToTab('flashcards');
                     }}
-                    className="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-indigo-600 text-neutral-300 hover:text-white transition font-medium"
+                    className="px-1.5 py-0.5 rounded bg-neutral-800 hover:bg-[#8E44AD] text-neutral-200 hover:text-white transition font-medium"
                   >
                     Cards
                   </button>
@@ -155,15 +153,17 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
         {recentMaterials.length < 4 && (
           <div
             onClick={onOpenUploadModal}
-            className="p-4 rounded-2xl border-2 border-dashed border-neutral-800/80 hover:border-indigo-500/40 bg-neutral-950/40 hover:bg-neutral-900/40 cursor-pointer transition flex flex-col items-center justify-center text-center gap-2 group min-h-[130px]"
+            className="p-4 rounded-2xl border-2 border-dashed border-[#34495E]/60 hover:border-[#8E44AD]/60 bg-neutral-950/40 hover:bg-neutral-900/40 cursor-pointer transition flex flex-col items-center justify-center text-center gap-2 group min-h-[130px]"
           >
-            <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-400 group-hover:text-indigo-400 transition">
+            <div className="p-2 rounded-xl bg-neutral-900 border border-[#34495E]/60 text-neutral-400 group-hover:text-[#F1C40F] transition">
               <Plus className="w-4 h-4" />
             </div>
-            <p className="text-xs font-semibold text-neutral-300 group-hover:text-white transition">
-              Upload New Doc
-            </p>
-            <p className="text-[10px] text-neutral-500">PDF, TXT, or Notes</p>
+            <div>
+              <p className="text-xs font-semibold text-neutral-200 group-hover:text-white">
+                Upload New Document
+              </p>
+              <p className="text-[10px] text-neutral-400">PDF, Notes, or Markdown</p>
+            </div>
           </div>
         )}
       </div>

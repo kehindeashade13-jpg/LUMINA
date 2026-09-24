@@ -22,7 +22,7 @@ function geminiServerPlugin(): Plugin {
 
         req.on('end', async () => {
           try {
-            const { prompt, systemInstruction, responseMimeType } = JSON.parse(body || '{}');
+            const { prompt, systemInstruction, responseMimeType, maxOutputTokens } = JSON.parse(body || '{}');
             const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
             if (!apiKey) {
@@ -41,8 +41,14 @@ function geminiServerPlugin(): Plugin {
               },
             });
 
-            // Models to try in order when experiencing 503 high demand spikes
-            const candidateModels = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+            // Robust candidate models list in priority order
+            const candidateModels = [
+              'gemini-2.5-flash',
+              'gemini-3.8-flash',
+              'gemini-flash-latest',
+              'gemini-3.1-flash-lite',
+              'gemini-3.1-pro-preview',
+            ];
             let generatedText: string | undefined;
             let lastError: any = null;
 
@@ -59,6 +65,7 @@ function geminiServerPlugin(): Plugin {
                     config: {
                       systemInstruction: systemInstruction || undefined,
                       responseMimeType: responseMimeType || undefined,
+                      maxOutputTokens: maxOutputTokens || 8192,
                     },
                   });
 
@@ -69,11 +76,11 @@ function geminiServerPlugin(): Plugin {
                 } catch (modelErr: any) {
                   lastError = modelErr;
                   const errMsg = modelErr?.message || String(modelErr);
-                  const is503OrRateLimit = errMsg.includes('503') || errMsg.includes('high demand') || errMsg.includes('429');
+                  const is503OrRateLimit = errMsg.includes('503') || errMsg.includes('high demand') || errMsg.includes('429') || errMsg.includes('UNAVAILABLE');
 
                   if (is503OrRateLimit && attempts < maxAttempts) {
-                    // Brief delay before retry
-                    await new Promise(resolve => setTimeout(resolve, 800));
+                    // Jittered backoff before retry
+                    await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400));
                     continue;
                   }
                   // Break attempt loop to move to next candidate model

@@ -18,6 +18,15 @@ export interface QuizQuestion {
   userAnswerIndex?: number;
 }
 
+export interface PracticeQuestion {
+  id: string;
+  question: string;
+  sampleAnswer: string;
+  topic?: string;
+  keyTakeaway?: string;
+  difficulty?: 'basic' | 'intermediate' | 'advanced';
+}
+
 export interface StudyNoteSection {
   title: string;
   content: string;
@@ -47,6 +56,7 @@ export interface StudyMaterial {
   sections: StudyNoteSection[];
   flashcards: Flashcard[];
   quiz: QuizQuestion[];
+  practiceQuestions?: PracticeQuestion[];
   tags: string[];
   estimatedReadTimeMinutes?: number;
 }
@@ -66,4 +76,3 @@ export interface ChatMessage {
 }
 
 export type ActiveTab = 'notes' | 'flashcards' | 'quiz' | 'documents';
-

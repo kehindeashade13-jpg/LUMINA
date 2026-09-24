@@ -1,8 +1,25 @@
 @import "tailwindcss";
 
+@theme {
+  --color-violet-brand: #8e44ad;
+  --color-violet-hover: #7d3c98;
+  --color-violet-light: #a569bd;
+  --color-amber-brand: #f1c40f;
+  --color-amber-hover: #d4ac0d;
+  --color-amber-light: #f7dc6f;
+  --color-charcoal-brand: #34495e;
+  --color-charcoal-dark: #2c3e50;
+  --color-charcoal-light: #415b76;
+  --color-green-brand: #2ecc71;
+  --color-green-hover: #27ae60;
+  --color-green-light: #58d68d;
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #0b0f14;
+    color: #e2e8f0;
   }
 }
 
@@ -23,18 +40,18 @@
   transform: rotateY(180deg);
 }
 
-/* Custom modern scrollbar */
+/* Custom Logo 4 theme scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(23, 23, 23, 0.6);
+  background: rgba(44, 62, 80, 0.4);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: rgba(142, 68, 173, 0.4);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.6);
+  background: rgba(142, 68, 173, 0.8);
 }
