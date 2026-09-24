@@ -291,7 +291,7 @@ Your mission is to perform an exhaustive, high-yield academic analysis of the pr
 Every paragraph, subtopic, heading, key formula, technical definition, and nuance must be thoroughly synthesized.
 You must output strictly valid JSON matching the specified schema. Do not truncate.`;
 
-  // Phase 1 Prompt: Comprehensive Summary, Step-by-Step Lesson Modules, Glossary, & 30 Practice Questions
+  // Phase 1 Prompt: Comprehensive Summary, Step-by-Step Lesson Modules, Glossary, & 30 Practice Questions with Choice Options
   const promptPart1 = `Perform an exhaustive, high-yield analysis of the following document and output strictly valid JSON.
 Title: "${title}"
 Subject: "${subject}"
@@ -326,8 +326,16 @@ Format as a single JSON object with EXACTLY this structure:
   "practiceQuestions": [
     {
       "id": "pq_1",
-      "question": "Comprehensive open-ended or analytical question examining a specific paragraph or mechanism in the text",
+      "question": "Comprehensive analytical question examining a specific paragraph or mechanism in the text",
+      "options": [
+        "A) Plausible conceptual answer choice",
+        "B) Correct, precise analytical choice",
+        "C) Plausible distractor choice",
+        "D) Alternative common misconception"
+      ],
+      "correctOptionIndex": 1,
       "sampleAnswer": "Thorough, step-by-step model answer explaining the underlying principles and reasoning.",
+      "explanation": "Clear explanation of why this option is correct and key analytical takeaway.",
       "topic": "Subtopic Name",
       "difficulty": "intermediate"
     }
@@ -339,7 +347,7 @@ Format as a single JSON object with EXACTLY this structure:
 REQUIREMENTS:
 1. Provide at least 5-8 chronological Step-by-Step Lesson Modules ('sections') covering every subtopic in depth.
 2. Provide at least 10-15 glossary terms.
-3. Provide EXACTLY 30 diverse Practice Questions (open-ended, analytical, situational, and short-answer) covering all subtopics.`;
+3. Provide EXACTLY 30 diverse Practice Questions. Each practice question MUST have 4 distinct multiple choice options ('options': 4 strings) and 'correctOptionIndex' (0-3), in addition to the thorough 'sampleAnswer'.`;
 
   // Phase 2 Prompt: 30 Interactive Flashcards + 30 Rigorous Multiple Choice Quizzes
   const promptPart2 = `Create a massive 60-item active recall assessment suite for the following document.
@@ -357,7 +365,14 @@ Format as a single JSON object with EXACTLY this structure:
       "front": "Crucial concept, term, mechanism, or active recall prompt",
       "back": "Exhaustive, high-yield explanation/definition with full context, operational significance, and nuances",
       "hint": "Brief memory anchor or clue",
-      "difficulty": "medium"
+      "difficulty": "medium",
+      "options": [
+        "A) Accurate core definition matching the back",
+        "B) Distractor representing related concept",
+        "C) Distractor representing opposite mechanism",
+        "D) Distractor representing adjacent term"
+      ],
+      "correctOptionIndex": 0
     }
   ],
   "quiz": [
@@ -377,7 +392,7 @@ Format as a single JSON object with EXACTLY this structure:
 }
 
 REQUIREMENTS:
-1. Generate EXACTLY 30 Flashcards (Front: Concept/Term, Back: Detailed Explanation) with difficulty mixture ('easy', 'medium', 'hard').
+1. Generate EXACTLY 30 Flashcards with 'options' (4 choices so users can pick options or flip) and 'correctOptionIndex' (0-3).
 2. Generate EXACTLY 30 Multiple Choice Quizzes (4 distinct choices each, correctAnswerIndex 0-3, and comprehensive explanations).
 3. Ensure no truncation; write complete, rigorous items.`;
 
@@ -488,7 +503,7 @@ REQUIREMENTS:
 }
 
 /**
- * Guarantees exactly 30 rich Flashcards
+ * Guarantees exactly 30 rich Flashcards with Option choices
  */
 function guarantee30Flashcards(
   existing: Flashcard[],
@@ -498,7 +513,30 @@ function guarantee30Flashcards(
   title: string,
   subject: string
 ): Flashcard[] {
-  const result: Flashcard[] = [...existing];
+  const result: Flashcard[] = existing.map((fc, i) => {
+    if (fc.options && fc.options.length >= 4 && typeof fc.correctOptionIndex === 'number') {
+      return fc;
+    }
+    // Build options if not present
+    const correctChoice = fc.back.slice(0, 120);
+    const otherBacks = existing.filter((_, idx) => idx !== i).map((x) => x.back.slice(0, 120));
+    const distractors = otherBacks.length >= 3
+      ? otherBacks.slice(0, 3)
+      : [
+          `Inapplicable condition where primary forces cancel out and destabilize baseline parameters.`,
+          `Secondary asymptotic limit observed only in isolated closed-loop configurations.`,
+          `Transient state leading to standard baseline decay under nominal conditions.`,
+        ];
+    const correctIdx = i % 4;
+    const opts = [...distractors];
+    opts.splice(correctIdx, 0, correctChoice);
+    const letteredOpts = opts.map((opt, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${opt.replace(/^[A-D]\)\s*/, '')}`);
+    return {
+      ...fc,
+      options: letteredOpts,
+      correctOptionIndex: correctIdx,
+    };
+  });
   const target = 30;
 
   if (result.length >= target) {
@@ -508,6 +546,14 @@ function guarantee30Flashcards(
   // Generate missing cards from glossary
   glossary.forEach((term, idx) => {
     if (result.length < target && !result.some((f) => f.front.toLowerCase().includes(term.term.toLowerCase()))) {
+      const correctIdx = idx % 4;
+      const opts = [
+        `Distractor representing standard baseline transformation in ${subject}.`,
+        `Distractor representing inverted causal mechanism in ${title}.`,
+        `Distractor representing non-equilibrium boundary conditions.`,
+      ];
+      opts.splice(correctIdx, 0, term.definition);
+      const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o}`);
       result.push({
         id: `fc_gen_${result.length + 1}_${Date.now()}`,
         front: `Define and explain the significance of "${term.term}" in ${subject}`,
@@ -516,6 +562,8 @@ function guarantee30Flashcards(
         difficulty: idx % 3 === 0 ? 'hard' : idx % 2 === 0 ? 'medium' : 'easy',
         mastered: false,
         reviewCount: 0,
+        options: letteredOpts,
+        correctOptionIndex: correctIdx,
       });
     }
   });
@@ -524,6 +572,14 @@ function guarantee30Flashcards(
   sections.forEach((sec, sIdx) => {
     sec.keyTakeaways?.forEach((takeaway, tIdx) => {
       if (result.length < target) {
+        const correctIdx = (sIdx + tIdx) % 4;
+        const opts = [
+          `Distractor focusing on unrelated secondary assumptions in ${subject}.`,
+          `Distractor reversing the directional flow between input and output state.`,
+          `Distractor asserting static constant behavior where dynamic shifts occur.`,
+        ];
+        opts.splice(correctIdx, 0, takeaway);
+        const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o}`);
         result.push({
           id: `fc_gen_${result.length + 1}_${Date.now()}`,
           front: `[${sec.title.split(':')[0] || 'Core Module'}] How does the principle: "${takeaway.slice(0, 60)}..." operate?`,
@@ -532,6 +588,8 @@ function guarantee30Flashcards(
           difficulty: (sIdx + tIdx) % 3 === 0 ? 'hard' : 'medium',
           mastered: false,
           reviewCount: 0,
+          options: letteredOpts,
+          correctOptionIndex: correctIdx,
         });
       }
     });
@@ -542,6 +600,14 @@ function guarantee30Flashcards(
   let pIdx = 0;
   while (result.length < target) {
     const p = paragraphs[pIdx % paragraphs.length] || `Core mechanism ${result.length + 1} in ${subject}`;
+    const correctIdx = result.length % 4;
+    const opts = [
+      `Distractor asserting invariant constant behavior across all states.`,
+      `Distractor reversing first-order causal mechanisms.`,
+      `Distractor omitting fundamental boundary constraints.`,
+    ];
+    opts.splice(correctIdx, 0, p.slice(0, 110));
+    const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o}`);
     result.push({
       id: `fc_gen_${result.length + 1}_${Date.now()}`,
       front: `Item ${result.length + 1}: What is the high-yield principle governing ${subject} subtopic ${result.length + 1}?`,
@@ -550,6 +616,8 @@ function guarantee30Flashcards(
       difficulty: result.length % 3 === 0 ? 'hard' : result.length % 2 === 0 ? 'medium' : 'easy',
       mastered: false,
       reviewCount: 0,
+      options: letteredOpts,
+      correctOptionIndex: correctIdx,
     });
     pIdx++;
   }
@@ -558,7 +626,7 @@ function guarantee30Flashcards(
 }
 
 /**
- * Guarantees exactly 30 rich Practice Questions
+ * Guarantees exactly 30 rich Practice Questions with Options
  */
 function guarantee30PracticeQuestions(
   existing: PracticeQuestion[],
@@ -568,7 +636,26 @@ function guarantee30PracticeQuestions(
   title: string,
   subject: string
 ): PracticeQuestion[] {
-  const result: PracticeQuestion[] = [...existing];
+  const result: PracticeQuestion[] = existing.map((pq, i) => {
+    if (pq.options && pq.options.length >= 4 && typeof pq.correctOptionIndex === 'number') {
+      return pq;
+    }
+    const correctIdx = i % 4;
+    const correctSummary = pq.sampleAnswer.split('.')[0] || 'Foundational dynamic governing system state';
+    const opts = [
+      `Invert the primary causal variables without checking boundary constraints`,
+      `Treat dynamic continuous variations as discrete invariant constants`,
+      `Bypass baseline equilibrium calculations and assume asymptotic decay`,
+    ];
+    opts.splice(correctIdx, 0, correctSummary);
+    const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o.replace(/^[A-D]\)\s*/, '')}`);
+    return {
+      ...pq,
+      options: letteredOpts,
+      correctOptionIndex: correctIdx,
+      explanation: pq.explanation || `The correct approach requires evaluating core mechanisms: ${correctSummary}.`,
+    };
+  });
   const target = 30;
 
   if (result.length >= target) {
@@ -578,23 +665,44 @@ function guarantee30PracticeQuestions(
   // Derive from sections
   sections.forEach((sec, idx) => {
     if (result.length < target) {
+      const correctIdx = idx % 4;
+      const opts = [
+        `A) Primary variables destabilize without altering secondary feedback channels`,
+        `B) Foundational mechanisms structure how input variables propagate through equilibrium`,
+        `C) Dynamic variations decay into static invariant equilibrium universally`,
+        `D) Boundary constraints apply only when external parameters are entirely removed`,
+      ];
       result.push({
         id: `pq_gen_${result.length + 1}_${Date.now()}`,
         question: `Analyze the core mechanisms articulated in "${sec.title}". How do these dynamics influence overall system outcomes in ${subject}?`,
         sampleAnswer: `**Detailed Model Response:** In "${sec.title}", the foundational mechanisms structure how input variables propagate through the system. Specifically:\n1. Direct interactions establish baseline stability.\n2. Secondary feedback loops modulate response intensity.\n3. Boundary constraints determine the threshold where standard assumptions remain valid.\n\nMastery of this principle allows precise prediction of system behavior under varying conditions.`,
         topic: sec.title.replace(/^Module \d+:\s*/, ''),
         difficulty: idx % 3 === 0 ? 'advanced' : idx % 2 === 0 ? 'intermediate' : 'basic',
+        options: opts,
+        correctOptionIndex: 1,
+        explanation: `In "${sec.title}", input variables structure systemic stability through direct interactions and secondary feedback loops.`,
       });
     }
 
-    sec.keyTakeaways?.forEach((takeaway) => {
+    sec.keyTakeaways?.forEach((takeaway, tIdx) => {
       if (result.length < target) {
+        const correctIdx = (idx + tIdx) % 4;
+        const opts = [
+          `Verify boundary conditions first, then calculate primary first-order effects`,
+          `Assume constant static behavior and ignore feedback adjustments`,
+          `Apply final sensitivity corrections prior to establishing baseline variables`,
+          `Disregard initial boundary criteria and extrapolate without verification`,
+        ];
+        const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o}`);
         result.push({
           id: `pq_gen_${result.length + 1}_${Date.now()}`,
           question: `Explain the practical and theoretical implications of: "${takeaway}". Provide a reasoned breakdown.`,
           sampleAnswer: `**Model Solution:** This takeaway articulates an essential rule in ${subject}. When evaluating complex scenarios, failing to account for this factor leads to systematic estimation errors. To apply it properly, verify boundary conditions first, then calculate primary first-order effects before incorporating feedback adjustments.`,
           topic: sec.title.replace(/^Module \d+:\s*/, ''),
           difficulty: 'intermediate',
+          options: letteredOpts,
+          correctOptionIndex: 0,
+          explanation: `Systematic analysis requires verifying boundary parameters before calculating first-order and feedback effects.`,
         });
       }
     });
@@ -603,12 +711,23 @@ function guarantee30PracticeQuestions(
   // Derive from glossary
   glossary.forEach((term, idx) => {
     if (result.length < target) {
+      const correctIdx = idx % 4;
+      const opts = [
+        `It specifies precise operational criteria under which system transformations occur`,
+        `It measures secondary symptoms without specifying operational criteria`,
+        `It assumes non-varying equilibrium independent of underlying variables`,
+        `It invalidates standard analytical diagnostics in all environments`,
+      ];
+      const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o}`);
       result.push({
         id: `pq_gen_${result.length + 1}_${Date.now()}`,
         question: `Contrast the operational definition of "${term.term}" with related concepts in ${subject}. Why is this distinction vital?`,
         sampleAnswer: `**Model Solution:** "${term.term}" is defined as: ${term.definition}.\n\nIt is distinct because it specifies the precise operational criteria under which system transformations occur. Confusing this with secondary symptoms leads to invalid diagnostics.`,
         topic: `${term.term} Analysis`,
         difficulty: idx % 2 === 0 ? 'intermediate' : 'advanced',
+        options: letteredOpts,
+        correctOptionIndex: 0,
+        explanation: `"${term.term}" provides the exact operational framework necessary to prevent diagnostic errors.`,
       });
     }
   });
@@ -616,12 +735,22 @@ function guarantee30PracticeQuestions(
   // Filler up to 30
   while (result.length < target) {
     const num = result.length + 1;
+    const correctIdx = num % 4;
+    const opts = [
+      `A) Establishing baseline parameters, identifying active variables, and applying transformation equations`,
+      `B) Omitting boundary conditions and assuming unconstrained linear growth`,
+      `C) Evaluating isolated terminal states without accounting for precursor mechanisms`,
+      `D) Replacing verified empirical principles with intuitive estimations`,
+    ];
     result.push({
       id: `pq_gen_${num}_${Date.now()}`,
       question: `Question ${num}: Describe how the foundational doctrines of "${title}" apply when examining complex case studies in ${subject}.`,
       sampleAnswer: `**Model Response:** Systematic application requires: (a) establishing baseline parameters, (b) identifying active variables, (c) applying core transformation equations, and (d) conducting sensitivity analysis across boundary constraints.`,
       topic: `${subject} Synthesis`,
       difficulty: num % 3 === 0 ? 'advanced' : 'intermediate',
+      options: opts,
+      correctOptionIndex: 0,
+      explanation: `Rigorous analysis demands establishing baselines, active variables, transformation equations, and boundary constraints.`,
     });
   }
 

@@ -7,6 +7,8 @@ export interface Flashcard {
   mastered?: boolean;
   reviewCount?: number;
   lastReviewed?: string;
+  options?: string[];
+  correctOptionIndex?: number;
 }
 
 export interface QuizQuestion {
@@ -16,6 +18,7 @@ export interface QuizQuestion {
   correctAnswerIndex: number;
   explanation: string;
   userAnswerIndex?: number;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export interface PracticeQuestion {
@@ -25,6 +28,9 @@ export interface PracticeQuestion {
   topic?: string;
   keyTakeaway?: string;
   difficulty?: 'basic' | 'intermediate' | 'advanced';
+  options?: string[];
+  correctOptionIndex?: number;
+  explanation?: string;
 }
 
 export interface StudyNoteSection {

@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
   Send,
-  X,
   ChevronDown,
   RotateCcw,
   Copy,
@@ -13,10 +12,11 @@ import {
   Minimize2,
   Bot,
   User,
-  MessageSquare,
+  X,
 } from 'lucide-react';
 import { ChatMessage, StudyMaterial } from '../types/study';
 import { askLuminaChat } from '../services/gemini';
+import LuminaLogo from './LuminaLogo';
 
 interface LuminaChatBarProps {
   material: StudyMaterial | null;
@@ -41,7 +41,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
           {
             id: 'welcome_msg',
             role: 'assistant',
-            content: `Hello! I am **LUMINA AI**, your cognitive tutor for **"${material.title}"** (*${material.subject}*).\n\nI have indexed the full document text, core summaries, and flashcards. You can ask me:\n• Concept explanations or analogies\n• Clarifications on any passage or formula\n• General knowledge and external questions connecting to this topic\n\nHow can I help your study flow today?`,
+            content: `Hello! I am **LUMINA AI**, your cognitive tutor for **"${material.title}"** (*${material.subject}*).\n\nI have indexed the full document text, lesson modules, flashcards, practice questions, and quizzes. You can ask me:\n• Concept explanations, step-by-step breakdowns or analogies\n• Clarifications on any tricky option or practice question\n• General knowledge and external connections to this topic\n\nHow can I support your study flow today?`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -50,7 +50,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
           {
             id: 'welcome_empty',
             role: 'assistant',
-            content: `Welcome to **LUMINA AI**! I am your interactive academic companion.\n\nAsk me any general study question, request learning strategies, or upload a document to unlock deep, context-aware analysis!`,
+            content: `Welcome to **LUMINA AI**! I am your interactive academic companion.\n\nAsk me any general study question, request active-recall strategies, or upload a document to unlock deep, context-aware analysis!`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
@@ -142,7 +142,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
     ? [
         `Summarize the key mechanisms in "${material.title}"`,
         `Give me a real-world analogy for the core concept`,
-        `Create a challenging practice question`,
+        `Explain how to answer the toughest practice question`,
         `Explain the most difficult part simply`,
       ]
     : [
@@ -151,7 +151,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         `Explain the difference between recall and recognition`,
       ];
 
-  // Helper to format basic markdown-style text (bold, lists, code) cleanly
+  // Helper to format basic markdown-style text
   const renderFormattedContent = (content: string) => {
     const paragraphs = content.split('\n');
     return (
@@ -162,7 +162,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
           // Heading 3 ###
           if (line.startsWith('### ')) {
             return (
-              <h4 key={idx} className="font-bold text-neutral-100 text-sm mt-2 mb-1">
+              <h4 key={idx} className="font-bold text-neutral-100 text-sm mt-2 mb-1 text-[#F1C40F]">
                 {line.replace('### ', '')}
               </h4>
             );
@@ -173,7 +173,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
             const cleanLine = line.trim().replace(/^[•\-*]\s+/, '');
             return (
               <div key={idx} className="flex items-start gap-2 pl-2">
-                <span className="text-indigo-400 font-bold shrink-0">•</span>
+                <span className="text-[#a569bd] font-bold shrink-0">•</span>
                 <span>{renderInlineStyles(cleanLine)}</span>
               </div>
             );
@@ -204,22 +204,18 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
       {/* Floating Expanded Chat Window */}
       {isOpen && (
         <div
-          className={`fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[480px] bg-neutral-900/95 border border-neutral-800 rounded-3xl shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 transition-all ${
+          className={`fixed bottom-20 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[480px] bg-neutral-950/98 border border-[#34495E]/80 rounded-3xl shadow-2xl backdrop-blur-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 transition-all ${
             isExpandedFull ? 'h-[85vh] sm:w-[620px]' : 'h-[520px]'
           }`}
         >
           {/* Top Chat Bar Header */}
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-neutral-800/80 bg-neutral-950/60">
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#34495E]/60 bg-neutral-900/90">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative flex items-center justify-center w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-400 p-[1px]">
-                <div className="w-full h-full bg-neutral-950 rounded-[11px] flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                </div>
-              </div>
+              <LuminaLogo size={32} showText={false} />
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-xs font-bold text-neutral-100">LUMINA AI Tutor</h3>
-                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-[#2ECC71]/15 text-[#2ECC71] border border-[#2ECC71]/30">
                     Live
                   </span>
                 </div>
@@ -256,13 +252,13 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
 
           {/* Context Banner */}
           {material && (
-            <div className="px-4 py-1.5 bg-indigo-950/20 border-b border-indigo-500/10 flex items-center justify-between text-[11px] text-indigo-300">
+            <div className="px-4 py-1.5 bg-[#8E44AD]/15 border-b border-[#8E44AD]/25 flex items-center justify-between text-[11px] text-[#a569bd]">
               <span className="flex items-center gap-1.5 truncate">
-                <BookOpen className="w-3 h-3 text-indigo-400 shrink-0" />
+                <BookOpen className="w-3 h-3 text-[#F1C40F] shrink-0" />
                 <span className="truncate">Document: {material.title}</span>
               </span>
-              <span className="text-[10px] text-neutral-400 shrink-0 ml-2">
-                Prioritizing text + unrestricted
+              <span className="text-[10px] text-[#2ECC71] shrink-0 ml-2 font-mono">
+                Full Index Active
               </span>
             </div>
           )}
@@ -280,8 +276,8 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
                   <div
                     className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 text-xs ${
                       isUser
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-neutral-800 text-indigo-400 border border-neutral-700'
+                        ? 'bg-[#8E44AD] text-white'
+                        : 'bg-neutral-800 text-[#F1C40F] border border-[#34495E]/60'
                     }`}
                   >
                     {isUser ? <User className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
@@ -291,13 +287,13 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
                   <div
                     className={`relative group max-w-[85%] rounded-2xl px-4 py-2.5 shadow-md ${
                       isUser
-                        ? 'bg-indigo-600 text-white rounded-tr-none'
-                        : 'bg-neutral-950 border border-neutral-800 text-neutral-300 rounded-tl-none'
+                        ? 'bg-[#8E44AD] text-white rounded-tr-none'
+                        : 'bg-neutral-900 border border-[#34495E]/70 text-neutral-200 rounded-tl-none'
                     }`}
                   >
                     {renderFormattedContent(msg.content)}
 
-                    <div className="flex items-center justify-between gap-4 mt-1.5 pt-1 border-t border-neutral-800/40 text-[9px] text-neutral-500 font-mono">
+                    <div className="flex items-center justify-between gap-4 mt-1.5 pt-1 border-t border-[#34495E]/40 text-[9px] text-neutral-400 font-mono">
                       <span>{msg.timestamp}</span>
                       {!isUser && (
                         <button
@@ -307,7 +303,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
                         >
                           {copiedId === msg.id ? (
                             <>
-                              <Check className="w-2.5 h-2.5 text-emerald-400" /> Copied
+                              <Check className="w-2.5 h-2.5 text-[#2ECC71]" /> Copied
                             </>
                           ) : (
                             <>
@@ -325,12 +321,12 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
             {/* Loading / Typing Indicator */}
             {isLoading && (
               <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-neutral-800 text-indigo-400 border border-neutral-700 flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-lg bg-neutral-800 text-[#F1C40F] border border-[#34495E]/60 flex items-center justify-center shrink-0 mt-0.5">
                   <Bot className="w-3.5 h-3.5" />
                 </div>
-                <div className="bg-neutral-950 border border-neutral-800 rounded-2xl rounded-tl-none px-4 py-3 shadow-md flex items-center gap-2">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                  <span className="text-xs text-neutral-400 font-medium">
+                <div className="bg-neutral-900 border border-[#34495E]/70 rounded-2xl rounded-tl-none px-4 py-3 shadow-md flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F1C40F]" />
+                  <span className="text-xs text-neutral-300 font-medium">
                     LUMINA is analyzing context & synthesizing answer...
                   </span>
                 </div>
@@ -341,13 +337,13 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
           </div>
 
           {/* Quick Suggestion Chips */}
-          <div className="px-4 py-1.5 overflow-x-auto flex items-center gap-1.5 border-t border-neutral-800/80 bg-neutral-950/40">
+          <div className="px-4 py-1.5 overflow-x-auto flex items-center gap-1.5 border-t border-[#34495E]/60 bg-neutral-950/60">
             {suggestions.map((suggestion, idx) => (
               <button
                 key={idx}
                 onClick={() => handleSendMessage(suggestion)}
                 disabled={isLoading}
-                className="px-2.5 py-1 rounded-full bg-neutral-800/80 hover:bg-neutral-700 border border-neutral-700/80 text-[11px] text-neutral-300 hover:text-white whitespace-nowrap transition shrink-0 disabled:opacity-50"
+                className="px-2.5 py-1 rounded-full bg-neutral-900 hover:bg-[#8E44AD] border border-[#34495E]/60 text-[11px] text-neutral-300 hover:text-white whitespace-nowrap transition shrink-0 disabled:opacity-50"
               >
                 {suggestion}
               </button>
@@ -355,8 +351,8 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
           </div>
 
           {/* Input Box Inside Floating Window */}
-          <div className="p-3 border-t border-neutral-800 bg-neutral-950">
-            <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-800 rounded-2xl px-3 py-1.5 focus-within:border-indigo-500 transition">
+          <div className="p-3 border-t border-[#34495E]/60 bg-neutral-950">
+            <div className="flex items-center gap-2 bg-neutral-900 border border-[#34495E]/60 rounded-2xl px-3 py-1.5 focus-within:border-[#8E44AD] transition">
               <input
                 ref={inputRef}
                 type="text"
@@ -374,43 +370,41 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
               <button
                 onClick={() => handleSendMessage()}
                 disabled={!inputQuery.trim() || isLoading}
-                className="p-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-neutral-800 disabled:opacity-40 text-white rounded-xl transition shadow-md shadow-indigo-600/25 active:scale-95 shrink-0"
+                className="p-1.5 bg-[#8E44AD] hover:bg-[#7D3C98] disabled:bg-neutral-800 disabled:opacity-40 text-white rounded-xl transition shadow-md shadow-[#8E44AD]/25 active:scale-95 shrink-0"
               >
-                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#F1C40F]" /> : <Send className="w-3.5 h-3.5" />}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Lumina AI Tutor Chat Logo on the Right Side Below */}
+      {/* Floating Lumina AI Tutor Chat Button in Bottom Right */}
       <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
         <button
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Ask LUMINA AI Tutor"
-          className="group relative flex items-center gap-2.5 p-1.5 pr-4 rounded-full bg-neutral-900/90 hover:bg-neutral-900 border border-neutral-800 hover:border-indigo-500/50 shadow-2xl backdrop-blur-xl transition-all duration-200 active:scale-95"
+          className="group relative flex items-center gap-2.5 p-1.5 pr-4 rounded-full bg-neutral-900/95 hover:bg-neutral-900 border border-[#34495E]/80 hover:border-[#8E44AD] shadow-2xl backdrop-blur-xl transition-all duration-200 active:scale-95"
         >
           {/* Ambient Glow */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/30 to-cyan-500/30 rounded-full blur-md opacity-75 group-hover:opacity-100 transition" />
+          <div className="absolute -inset-1 bg-gradient-to-r from-[#8E44AD]/30 to-[#F1C40F]/25 rounded-full blur-md opacity-75 group-hover:opacity-100 transition" />
 
-          {/* Chat Icon Badge */}
-          <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-[1.5px] shadow-lg shadow-indigo-600/30">
-            <div className="w-full h-full bg-neutral-950 rounded-full flex items-center justify-center group-hover:bg-neutral-900 transition">
-              {isOpen ? (
-                <X className="w-5 h-5 text-indigo-400" />
-              ) : (
-                <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-              )}
-            </div>
+          {/* Chat Icon Badge with Logo 4 SVG */}
+          <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-neutral-950 border border-[#34495E]/80 shadow-lg shadow-[#8E44AD]/25">
+            {isOpen ? (
+              <X className="w-5 h-5 text-[#F1C40F]" />
+            ) : (
+              <LuminaLogo size={28} showText={false} />
+            )}
           </div>
 
           {/* Label */}
           <div className="relative text-left hidden sm:block">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-neutral-100 group-hover:text-indigo-300 transition">
+              <span className="text-xs font-bold text-neutral-100 group-hover:text-[#a569bd] transition">
                 Ask LUMINA AI
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-[#2ECC71] animate-ping" />
             </div>
             <span className="text-[10px] text-neutral-400 block -mt-0.5 truncate max-w-[120px]">
               {material ? material.subject : 'Tutor Online'}

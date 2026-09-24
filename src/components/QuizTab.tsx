@@ -39,25 +39,7 @@ export const QuizTab: React.FC<QuizTabProps> = ({
     }
   }, [material?.id]);
 
-  if (!material || material.quiz.length === 0) {
-    return (
-      <div className="p-16 text-center border border-dashed border-[#34495E]/60 rounded-2xl bg-neutral-950/50">
-        <Sparkles className="w-10 h-10 text-[#F1C40F] mx-auto mb-3" />
-        <h3 className="text-base font-bold text-neutral-100">No documents uploaded yet</h3>
-        <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-          Upload a study document to automatically generate adaptive practice quizzes with detailed explanations.
-        </p>
-        <button
-          onClick={() => onNavigateToTab('documents')}
-          className="mt-4 px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-lg shadow-[#8E44AD]/25"
-        >
-          Upload Document
-        </button>
-      </div>
-    );
-  }
-
-  const questions = filteredQuestions.length > 0 ? filteredQuestions : material.quiz;
+  const questions = (filteredQuestions.length > 0 ? filteredQuestions : material?.quiz) || [];
   const currentQ = questions[currentQuestionIndex];
 
   // Calculate score
@@ -66,7 +48,7 @@ export const QuizTab: React.FC<QuizTabProps> = ({
     return q && q.correctAnswerIndex === chosenOption ? acc + 1 : acc;
   }, 0);
 
-  const percentage = Math.round((score / questions.length) * 100);
+  const percentage = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
 
   const triggerConfetti = () => {
     try {
@@ -106,6 +88,7 @@ export const QuizTab: React.FC<QuizTabProps> = ({
   };
 
   const handleRetakeFull = () => {
+    if (!material) return;
     setFilteredQuestions(material.quiz);
     setCurrentQuestionIndex(0);
     setSelectedOption(null);
@@ -115,22 +98,46 @@ export const QuizTab: React.FC<QuizTabProps> = ({
   };
 
   const handleRetakeMissed = () => {
-    const missed = material.quiz.filter((q, idx) => userAnswers[idx] !== q.correctAnswerIndex);
-    if (missed.length > 0) {
-      setFilteredQuestions(missed);
-      setCurrentQuestionIndex(0);
-      setSelectedOption(null);
-      setUserAnswers({});
-      setIsAnswerSubmitted(false);
-      setIsQuizCompleted(false);
-    } else {
+    if (!material) return;
+    const missed = questions.filter((q, idx) => {
+      const userAns = userAnswers[idx];
+      return userAns === undefined || userAns !== q.correctAnswerIndex;
+    });
+
+    if (missed.length === 0) {
       handleRetakeFull();
+      return;
     }
+
+    setFilteredQuestions(missed);
+    setCurrentQuestionIndex(0);
+    setSelectedOption(null);
+    setUserAnswers({});
+    setIsAnswerSubmitted(false);
+    setIsQuizCompleted(false);
   };
+
+  if (!material || material.quiz.length === 0) {
+    return (
+      <div className="p-16 text-center border border-dashed border-[#34495E]/60 rounded-2xl bg-neutral-950/50">
+        <Sparkles className="w-10 h-10 text-[#F1C40F] mx-auto mb-3" />
+        <h3 className="text-base font-bold text-neutral-100">No documents uploaded yet</h3>
+        <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
+          Upload a study document to automatically generate adaptive practice quizzes with detailed explanations.
+        </p>
+        <button
+          onClick={() => onNavigateToTab('documents')}
+          className="mt-4 px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-lg shadow-[#8E44AD]/25"
+        >
+          Upload Document
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-12">
-      {/* Top Banner */}
+      {/* Quiz Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-neutral-900 border border-[#34495E]/60 shadow-xl">
         <div>
           <div className="flex items-center gap-2">
@@ -138,284 +145,181 @@ export const QuizTab: React.FC<QuizTabProps> = ({
               {material.subject}
             </span>
             <span className="text-xs text-neutral-400">
-              {questions.length} Multiple Choice Questions
-            </span>
-          </div>
-          <h2 className="text-lg font-bold text-neutral-100 mt-1">Adaptive Knowledge Assessment</h2>
-        </div>
-
-        {!isQuizCompleted && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-medium text-[#F1C40F]">
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
-            <button
-              onClick={handleRetakeFull}
-              title="Restart Quiz"
-              className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-300 transition border border-[#34495E]/60"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
           </div>
-        )}
+          <h2 className="text-lg font-bold text-neutral-100 mt-1">Adaptive Mastery Quiz</h2>
+        </div>
+
+        <button
+          onClick={handleRetakeFull}
+          className="px-3 py-1.5 bg-neutral-950 hover:bg-neutral-800 border border-[#34495E]/60 rounded-xl text-xs font-semibold text-neutral-300 hover:text-white flex items-center gap-1.5 transition self-start sm:self-auto"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-[#F1C40F]" /> Retake Quiz
+        </button>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="w-full bg-neutral-900 h-2.5 rounded-full overflow-hidden border border-[#34495E]/50">
+        <div
+          className="bg-gradient-to-r from-[#8E44AD] via-[#F1C40F] to-[#2ECC71] h-full transition-all duration-300"
+          style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+        />
       </div>
 
       {!isQuizCompleted ? (
-        <>
-          {/* Question Card */}
-          <div className="p-6 sm:p-8 rounded-3xl bg-neutral-900 border border-[#34495E]/70 shadow-xl space-y-6">
+        /* Active Question Card */
+        <div className="p-6 sm:p-8 rounded-3xl bg-neutral-900 border border-[#34495E]/80 shadow-2xl space-y-6 animate-in fade-in duration-150">
+          {/* Question Header */}
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center justify-between text-xs text-neutral-400 mb-3">
-                <span className="font-mono uppercase tracking-wider text-[#F1C40F] font-bold">
-                  ★ Concept Challenge #{currentQuestionIndex + 1}
-                </span>
-                <span>Single Choice</span>
-              </div>
-              <h3 className="text-base sm:text-xl font-bold text-neutral-100 leading-snug">
-                {currentQ.question}
+              <span className="text-xs font-mono font-bold text-[#a569bd] uppercase tracking-wider">
+                Question #{currentQuestionIndex + 1}
+              </span>
+              <h3 className="text-base sm:text-lg font-bold text-neutral-100 mt-1.5 leading-snug">
+                {currentQ?.question}
               </h3>
             </div>
-
-            {/* Options List */}
-            <div className="space-y-3">
-              {currentQ.options.map((option, optIdx) => {
-                const isSelected = selectedOption === optIdx;
-                const isCorrect = optIdx === currentQ.correctAnswerIndex;
-
-                let optionStyles = 'bg-neutral-950/70 border-[#34495E]/60 text-neutral-200 hover:border-[#8E44AD]';
-
-                if (isAnswerSubmitted) {
-                  if (isCorrect) {
-                    optionStyles = 'bg-[#2ECC71]/15 border-[#2ECC71] text-emerald-100 ring-1 ring-[#2ECC71]/50';
-                  } else if (isSelected && !isCorrect) {
-                    optionStyles = 'bg-rose-950/40 border-rose-500 text-rose-200 ring-1 ring-rose-500/40';
-                  } else {
-                    optionStyles = 'bg-neutral-950/40 border-[#34495E]/40 text-neutral-400 opacity-60';
-                  }
-                } else if (isSelected) {
-                  optionStyles = 'bg-[#8E44AD]/25 border-[#8E44AD] text-white';
-                }
-
-                return (
-                  <button
-                    key={optIdx}
-                    onClick={() => handleSelectOption(optIdx)}
-                    disabled={isAnswerSubmitted}
-                    className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm font-medium transition flex items-start gap-3.5 ${optionStyles}`}
-                  >
-                    <div
-                      className={`w-6 h-6 rounded-xl flex items-center justify-center text-xs font-mono font-bold shrink-0 mt-0.5 border ${
-                        isAnswerSubmitted && isCorrect
-                          ? 'bg-[#2ECC71] text-neutral-950 border-[#2ECC71]'
-                          : isAnswerSubmitted && isSelected && !isCorrect
-                          ? 'bg-rose-500 text-neutral-950 border-rose-400'
-                          : 'bg-neutral-900 border-[#34495E]/80 text-neutral-300'
-                      }`}
-                    >
-                      {String.fromCharCode(65 + optIdx)}
-                    </div>
-                    <span className="flex-1 leading-relaxed">{option}</span>
-                    {isAnswerSubmitted && isCorrect && (
-                      <CheckCircle2 className="w-5 h-5 text-[#2ECC71] shrink-0" />
-                    )}
-                    {isAnswerSubmitted && isSelected && !isCorrect && (
-                      <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Explanation box revealed after answering */}
-            {isAnswerSubmitted && (
-              <div
-                className={`p-5 rounded-2xl border animate-in fade-in slide-in-from-top-2 duration-200 ${
-                  selectedOption === currentQ.correctAnswerIndex
-                    ? 'bg-[#2ECC71]/10 border-[#2ECC71]/40 text-emerald-200'
-                    : 'bg-[#F1C40F]/10 border-[#F1C40F]/40 text-amber-200'
+            {currentQ?.difficulty && (
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border shrink-0 ${
+                  currentQ.difficulty === 'easy'
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
+                    : currentQ.difficulty === 'hard'
+                    ? 'bg-rose-950/60 text-rose-400 border-rose-800/40'
+                    : 'bg-amber-950/60 text-[#F1C40F] border-amber-800/40'
                 }`}
               >
-                <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider mb-1.5">
-                  {selectedOption === currentQ.correctAnswerIndex ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-[#2ECC71]" /> Correct! Outstanding Recall
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-4 h-4 text-[#F1C40F]" /> Review Concept Key
-                    </>
-                  )}
-                </div>
-                <p className="text-xs text-neutral-200 leading-relaxed font-normal">
-                  {currentQ.explanation}
-                </p>
-              </div>
+                {currentQ.difficulty}
+              </span>
             )}
+          </div>
 
-            {/* Next / Continue Button (Deep Violet #8E44AD) */}
-            {isAnswerSubmitted && (
-              <div className="flex justify-end pt-2">
+          {/* Options Grid */}
+          <div className="space-y-2.5">
+            {currentQ?.options.map((option, idx) => {
+              const isSelected = selectedOption === idx;
+              const isCorrect = idx === currentQ.correctAnswerIndex;
+
+              let btnStyle = 'bg-neutral-950 border-[#34495E]/70 hover:border-[#8E44AD] text-neutral-200';
+
+              if (isAnswerSubmitted) {
+                if (isCorrect) {
+                  btnStyle = 'bg-emerald-950/80 border-[#2ECC71] text-emerald-100 shadow-lg shadow-emerald-900/30';
+                } else if (isSelected && !isCorrect) {
+                  btnStyle = 'bg-rose-950/80 border-rose-600 text-rose-100';
+                } else {
+                  btnStyle = 'bg-neutral-950 opacity-40 border-neutral-800 text-neutral-500';
+                }
+              }
+
+              return (
                 <button
-                  onClick={handleNextQuestion}
-                  className="px-6 py-3 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-lg shadow-[#8E44AD]/30 transition active:scale-95"
+                  key={idx}
+                  onClick={() => handleSelectOption(idx)}
+                  disabled={isAnswerSubmitted}
+                  className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm font-medium transition flex items-center justify-between gap-3 ${btnStyle}`}
                 >
-                  <span>
-                    {currentQuestionIndex + 1 === questions.length ? 'View Results' : 'Next Question'}
-                  </span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span className="leading-relaxed">{option}</span>
+                  {isAnswerSubmitted && isCorrect && (
+                    <CheckCircle2 className="w-5 h-5 text-[#2ECC71] shrink-0" />
+                  )}
+                  {isAnswerSubmitted && isSelected && !isCorrect && (
+                    <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                  )}
                 </button>
-              </div>
+              );
+            })}
+          </div>
+
+          {/* Explanation Section */}
+          {isAnswerSubmitted && (
+            <div
+              className={`p-4 rounded-2xl border text-xs leading-relaxed animate-in fade-in duration-200 ${
+                selectedOption === currentQ?.correctAnswerIndex
+                  ? 'bg-emerald-950/40 border-emerald-800/50 text-emerald-200'
+                  : 'bg-rose-950/30 border-rose-800/50 text-rose-200'
+              }`}
+            >
+              <strong className="block font-bold text-white mb-1">
+                {selectedOption === currentQ?.correctAnswerIndex ? '✓ Correct Answer!' : '✗ Incorrect'}
+              </strong>
+              <span>{currentQ?.explanation}</span>
+            </div>
+          )}
+
+          {/* Footer Action */}
+          <div className="flex items-center justify-between pt-4 border-t border-[#34495E]/50">
+            <span className="text-xs text-neutral-400 font-mono">
+              Score: {score} / {currentQuestionIndex + (isAnswerSubmitted ? 1 : 0)}
+            </span>
+
+            {isAnswerSubmitted && (
+              <button
+                onClick={handleNextQuestion}
+                className="px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-[#8E44AD]/30 transition active:scale-95"
+              >
+                <span>{currentQuestionIndex + 1 < questions.length ? 'Next Question' : 'Complete Quiz'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             )}
           </div>
-
-          {/* 30-Question Quick Jump Matrix */}
-          <div className="p-5 rounded-2xl bg-neutral-900 border border-[#34495E]/60 space-y-3 shadow-lg">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-neutral-200">Question Matrix ({questions.length} Items)</span>
-              <div className="flex items-center gap-3 text-[11px] text-neutral-400">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#2ECC71]" /> Correct
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-400" /> Incorrect
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#34495E]" /> Unanswered
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-6 sm:grid-cols-10 gap-1.5 pt-1">
-              {questions.map((q, qIdx) => {
-                const ans = userAnswers[qIdx];
-                const isAnswered = ans !== undefined;
-                const isCorrect = isAnswered && ans === q.correctAnswerIndex;
-                const isCurrent = qIdx === currentQuestionIndex;
-
-                let btnClass = 'bg-neutral-950 border-[#34495E]/60 text-neutral-400 hover:text-white hover:border-[#8E44AD]';
-
-                if (isAnswered) {
-                  btnClass = isCorrect
-                    ? 'bg-[#2ECC71]/20 border-[#2ECC71] text-[#2ECC71]'
-                    : 'bg-rose-950/60 border-rose-600 text-rose-300';
-                }
-
-                if (isCurrent) {
-                  btnClass += ' ring-2 ring-[#8E44AD] font-bold text-white';
-                }
-
-                return (
-                  <button
-                    key={qIdx}
-                    onClick={() => {
-                      setCurrentQuestionIndex(qIdx);
-                      setSelectedOption(ans !== undefined ? ans : null);
-                      setIsAnswerSubmitted(ans !== undefined);
-                    }}
-                    className={`py-2 rounded-xl text-xs font-mono border transition flex items-center justify-center ${btnClass}`}
-                  >
-                    {qIdx + 1}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
+        </div>
       ) : (
-        /* QUIZ VICTORY & SUMMARY SCREEN */
-        <div className="p-8 sm:p-10 rounded-3xl bg-neutral-900 border border-[#34495E]/60 shadow-2xl text-center space-y-6">
-          <div className="relative inline-flex items-center justify-center p-4 rounded-3xl bg-gradient-to-tr from-[#8E44AD]/20 to-[#2ECC71]/20 border border-[#8E44AD]/40">
-            <Trophy className="w-12 h-12 text-[#F1C40F] animate-bounce" />
+        /* Results Card */
+        <div className="p-8 sm:p-10 rounded-3xl bg-neutral-900 border border-[#34495E]/80 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-200">
+          <div className="p-4 rounded-3xl bg-[#8E44AD]/15 border border-[#8E44AD]/30 text-[#F1C40F] w-fit mx-auto shadow-xl">
+            <Trophy className="w-12 h-12" />
           </div>
 
           <div>
-            <h3 className="text-2xl font-bold text-neutral-100">Quiz Completed!</h3>
-            <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-              You scored <span className="text-[#2ECC71] font-bold">{score}</span> out of{' '}
-              <span className="text-white font-bold">{questions.length}</span> correct
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#8E44AD]/20 text-[#a569bd] border border-[#8E44AD]/40">
+              Quiz Completed
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-100 mt-2">
+              {percentage >= 80 ? 'Exceptional Mastery!' : percentage >= 50 ? 'Great Practice!' : 'Keep Studying!'}
+            </h2>
+            <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
+              You correctly answered {score} out of {questions.length} questions on {material.title}.
             </p>
           </div>
 
-          {/* Score Badge */}
-          <div className="flex items-center justify-center gap-6 py-4">
-            <div className="flex flex-col items-center">
-              <span className="text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-[#a569bd] via-white to-[#2ECC71]">
-                {percentage}%
-              </span>
-              <span className="text-[11px] text-neutral-400 uppercase tracking-widest mt-1">Accuracy</span>
+          <div className="p-6 rounded-2xl bg-neutral-950 border border-[#34495E]/60 max-w-sm mx-auto flex items-center justify-around">
+            <div>
+              <span className="text-3xl font-extrabold text-[#2ECC71] font-mono">{percentage}%</span>
+              <p className="text-[11px] text-neutral-400 uppercase font-semibold mt-0.5">Accuracy</p>
             </div>
-            <div className="h-10 w-[1px] bg-[#34495E]/60" />
-            <div className="flex flex-col items-center">
-              <span className="text-4xl font-black font-mono text-[#2ECC71]">
-                {percentage >= 90 ? 'A+' : percentage >= 80 ? 'A' : percentage >= 70 ? 'B' : 'Needs Review'}
-              </span>
-              <span className="text-[11px] text-neutral-400 uppercase tracking-widest mt-1">Grade</span>
+            <div className="h-8 w-px bg-[#34495E]" />
+            <div>
+              <span className="text-3xl font-extrabold text-[#F1C40F] font-mono">{score}/{questions.length}</span>
+              <p className="text-[11px] text-neutral-400 uppercase font-semibold mt-0.5">Correct</p>
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
               onClick={handleRetakeFull}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold flex items-center justify-center gap-2 transition border border-[#34495E]/60"
+              className="w-full sm:w-auto px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition border border-[#34495E]/60"
             >
-              <RotateCcw className="w-4 h-4" /> Retake Entire Quiz
+              <RotateCcw className="w-3.5 h-3.5 text-[#F1C40F]" /> Retake Full Quiz
             </button>
 
-            {percentage < 100 && (
+            {score < questions.length && (
               <button
                 onClick={handleRetakeMissed}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#F1C40F] hover:bg-[#d4ac0d] text-neutral-950 font-bold text-xs flex items-center justify-center gap-2 transition shadow-md shadow-[#F1C40F]/20"
+                className="w-full sm:w-auto px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#8E44AD]/30 transition"
               >
-                Retake Missed ({questions.length - score})
+                <span>Practice Missed ({questions.length - score})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             )}
 
             <button
               onClick={() => onNavigateToTab('notes')}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#8E44AD] hover:bg-[#7D3C98] text-white text-xs font-semibold flex items-center justify-center gap-2 transition shadow-md shadow-[#8E44AD]/30"
+              className="w-full sm:w-auto px-5 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition border border-[#34495E]/50"
             >
-              <BookOpen className="w-4 h-4" /> Return to Study Notes
+              <BookOpen className="w-3.5 h-3.5 text-[#a569bd]" /> Review Notes
             </button>
-          </div>
-
-          {/* Question by Question Review */}
-          <div className="pt-6 border-t border-[#34495E]/50 text-left space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#F1C40F]">
-              Detailed Question Analysis
-            </h4>
-            <div className="space-y-3">
-              {questions.map((q, idx) => {
-                const userChoice = userAnswers[idx];
-                const isCorrect = userChoice === q.correctAnswerIndex;
-                return (
-                  <div
-                    key={q.id || idx}
-                    className={`p-4 rounded-xl border text-xs ${
-                      isCorrect
-                        ? 'bg-neutral-950/60 border-[#2ECC71]/30'
-                        : 'bg-neutral-950/60 border-rose-900/30'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <span className="font-semibold text-neutral-100">
-                        {idx + 1}. {q.question}
-                      </span>
-                      {isCorrect ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#2ECC71]/15 text-[#2ECC71] shrink-0 border border-[#2ECC71]/30">
-                          Correct
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 shrink-0 border border-rose-500/20">
-                          Missed
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-neutral-300 mt-1">{q.explanation}</p>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}

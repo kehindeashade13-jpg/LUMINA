@@ -42,8 +42,6 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   currentMaterial,
   onSelectMaterial,
 }) => {
-  if (!isOpen) return null;
-
   const userInitial = user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'S';
 
   const handleNavClick = (tab: ActiveTab) => {
@@ -55,6 +53,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
     setActiveTab('documents');
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex">

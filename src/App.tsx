@@ -7,6 +7,10 @@ import {
   Sparkles,
   Loader2,
   BrainCircuit,
+  FileUp,
+  Youtube,
+  Mic,
+  ArrowRight,
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { StudyGuideTab } from './components/StudyGuideTab';
@@ -35,11 +39,17 @@ export function App() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadInitialTab, setUploadInitialTab] = useState<'document' | 'youtube' | 'audio'>('document');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [user, setUser] = useState<LuminaUser | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const openUploadModal = (tab: 'document' | 'youtube' | 'audio' = 'document') => {
+    setUploadInitialTab(tab);
+    setIsUploadModalOpen(true);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -129,7 +139,7 @@ export function App() {
         materials={materials}
         currentMaterial={currentMaterial}
         onSelectMaterial={handleSelectMaterial}
-        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenUploadModal={() => openUploadModal('document')}
         user={user}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
@@ -166,28 +176,90 @@ export function App() {
 
             <p className="text-sm text-neutral-300 mt-2.5 leading-relaxed max-w-lg">
               {user
-                ? `Welcome to your private study workspace, ${user.fullName.split(' ')[0]}. Upload study documents (PDFs, text files, lecture notes) to automatically generate comprehensive AI study guides, interactive 3D flashcards, and adaptive quizzes with isolated persistence.`
-                : 'Upload study documents (PDFs, text files, lecture notes) to automatically generate comprehensive AI study guides, interactive 3D flashcards, and adaptive quizzes. All data persists in your single-table Supabase database.'}
+                ? `Welcome to your private study workspace, ${user.fullName.split(' ')[0]}. Import PDFs, YouTube lecture links, or live voice recordings to automatically synthesize 90 comprehensive study items (Notes, Flashcards, Practice Questions & Quizzes).`
+                : 'Import PDFs, YouTube lecture links, or live voice recordings to automatically synthesize 90 comprehensive study items (Notes, Flashcards, Practice Questions & Quizzes) with persistent storage.'}
             </p>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 mt-8">
+            {/* 3 Distinct Input Options in Empty State */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-8 w-full">
+              {/* Option 1: Document */}
               <button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 shadow-xl shadow-[#8E44AD]/25 transition active:scale-95"
+                onClick={() => openUploadModal('document')}
+                className="p-4 rounded-2xl bg-neutral-900 border border-[#34495E]/80 hover:border-[#8E44AD] hover:bg-neutral-850 text-left transition group shadow-md flex flex-col justify-between"
               >
-                <Plus className="w-4 h-4" /> Upload Your First Document
+                <div>
+                  <div className="p-2.5 rounded-xl bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30 w-fit mb-3 group-hover:bg-[#8E44AD] group-hover:text-white transition">
+                    <FileUp className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xs font-bold text-neutral-100 group-hover:text-[#a569bd] transition">
+                    Upload Document
+                  </h3>
+                  <p className="text-[11px] text-neutral-400 mt-1">
+                    PDFs, Markdown notes, research papers, and text excerpts.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-[#a569bd] font-semibold mt-3">
+                  <span>Choose File</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition" />
+                </div>
               </button>
 
-              {!user && (
+              {/* Option 2: YouTube Link */}
+              <button
+                onClick={() => openUploadModal('youtube')}
+                className="p-4 rounded-2xl bg-neutral-900 border border-[#34495E]/80 hover:border-red-500/80 hover:bg-neutral-850 text-left transition group shadow-md flex flex-col justify-between"
+              >
+                <div>
+                  <div className="p-2.5 rounded-xl bg-red-950/50 text-red-400 border border-red-800/40 w-fit mb-3 group-hover:bg-red-600 group-hover:text-white transition">
+                    <Youtube className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xs font-bold text-neutral-100 group-hover:text-red-400 transition">
+                    Paste YouTube Link
+                  </h3>
+                  <p className="text-[11px] text-neutral-400 mt-1">
+                    Transcribe online video lectures and generate full study guides.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-red-400 font-semibold mt-3">
+                  <span>Import Video</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition" />
+                </div>
+              </button>
+
+              {/* Option 3: Audio / Record */}
+              <button
+                onClick={() => openUploadModal('audio')}
+                className="p-4 rounded-2xl bg-neutral-900 border border-[#34495E]/80 hover:border-[#F1C40F]/80 hover:bg-neutral-850 text-left transition group shadow-md flex flex-col justify-between"
+              >
+                <div>
+                  <div className="p-2.5 rounded-xl bg-[#F1C40F]/15 text-[#F1C40F] border border-[#F1C40F]/30 w-fit mb-3 group-hover:bg-[#F1C40F] group-hover:text-black transition">
+                    <Mic className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-xs font-bold text-neutral-100 group-hover:text-[#F1C40F] transition">
+                    Record / Audio File
+                  </h3>
+                  <p className="text-[11px] text-neutral-400 mt-1">
+                    Live microphone lecture capture or .mp3, .m4a, and .wav files.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-[#F1C40F] font-semibold mt-3">
+                  <span>Start Audio</span>
+                  <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition" />
+                </div>
+              </button>
+            </div>
+
+            {/* Auth CTA when signed out */}
+            {!user && (
+              <div className="mt-6">
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#34495E]/30 hover:bg-[#34495E]/60 border border-[#34495E] text-neutral-200 text-sm font-medium flex items-center justify-center gap-2 transition"
+                  className="px-5 py-2.5 rounded-xl bg-[#34495E]/30 hover:bg-[#34495E]/60 border border-[#34495E] text-neutral-200 text-xs font-medium flex items-center justify-center gap-2 transition"
                 >
-                  <LogIn className="w-4 h-4 text-[#F1C40F]" /> Sign In / Create Account
+                  <LogIn className="w-3.5 h-3.5 text-[#F1C40F]" /> Sign In to Save Workspace & Streaks
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Feature Highlights Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mt-12 w-full text-left">
@@ -270,8 +342,8 @@ export function App() {
         )}
       </main>
 
-      {/* Floating Conversational Chat Logo in Bottom Right (Shown only when no document is uploaded) */}
-      {materials.length === 0 && <LuminaChatBar material={null} />}
+      {/* Floating Interactive Lumina AI Tutor in Bottom Right (Always Available Everywhere) */}
+      <LuminaChatBar material={currentMaterial} />
 
       {/* Navigation Sidebar Drawer */}
       <SidebarDrawer
@@ -283,7 +355,7 @@ export function App() {
         materials={materials}
         currentMaterial={currentMaterial}
         onSelectMaterial={handleSelectMaterial}
-        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenUploadModal={() => openUploadModal('document')}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
       />
@@ -294,6 +366,7 @@ export function App() {
         onClose={() => setIsUploadModalOpen(false)}
         onDocumentCreated={handleDocumentCreated}
         userId={user?.id}
+        initialTab={uploadInitialTab}
       />
 
       {/* Auth Modal (Sign In / Sign Up) */}

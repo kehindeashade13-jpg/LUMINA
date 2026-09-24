@@ -6,6 +6,7 @@ import {
   Download,
   Search,
   CheckCircle2,
+  XCircle,
   Copy,
   Check,
   ChevronDown,
@@ -16,6 +17,7 @@ import {
   Layers,
   Eye,
   EyeOff,
+  RotateCcw,
 } from 'lucide-react';
 import { StudyMaterial, PracticeQuestion } from '../types/study';
 
@@ -30,6 +32,7 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
   const [practiceSearch, setPracticeSearch] = useState('');
   const [practiceDifficulty, setPracticeDifficulty] = useState<'all' | 'basic' | 'intermediate' | 'advanced'>('all');
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
+  const [userSelectedOptions, setUserSelectedOptions] = useState<Record<string, number>>({});
   const [understoodQuestions, setUnderstoodQuestions] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -44,6 +47,7 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
       setIsPausedAudio(false);
     }
     setRevealedAnswers({});
+    setUserSelectedOptions({});
     setUnderstoodQuestions({});
   }, [material?.id]);
 
@@ -66,6 +70,23 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
   }
 
   const practiceQuestions: PracticeQuestion[] = material.practiceQuestions || [];
+
+  // Helper to ensure 4 options exist for every practice question
+  const getQuestionOptions = (pq: PracticeQuestion, idx: number): { options: string[]; correctIdx: number } => {
+    if (pq.options && pq.options.length >= 4 && typeof pq.correctOptionIndex === 'number') {
+      return { options: pq.options, correctIdx: pq.correctOptionIndex };
+    }
+    const correctIdx = idx % 4;
+    const correctSummary = pq.sampleAnswer.split('.')[0] || 'Foundational dynamic governing system state';
+    const opts = [
+      'Invert the primary causal variables without checking boundary constraints',
+      'Treat dynamic continuous variations as discrete invariant constants',
+      'Bypass baseline equilibrium calculations and assume asymptotic decay',
+    ];
+    opts.splice(correctIdx, 0, correctSummary);
+    const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o.replace(/^[A-D]\)\s*/, '')}`);
+    return { options: letteredOpts, correctIdx };
+  };
 
   // Audio Playback
   const handleToggleAudio = () => {
@@ -163,6 +184,23 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
 
   const toggleRevealAnswer = (id: string) => {
     setRevealedAnswers((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handlePickPracticeOption = (questionId: string, optIdx: number, correctIdx: number) => {
+    setUserSelectedOptions((prev) => ({ ...prev, [questionId]: optIdx }));
+    setRevealedAnswers((prev) => ({ ...prev, [questionId]: true }));
+    if (optIdx === correctIdx) {
+      setUnderstoodQuestions((prev) => ({ ...prev, [questionId]: true }));
+    }
+  };
+
+  const handleResetPracticeQuestion = (questionId: string) => {
+    setUserSelectedOptions((prev) => {
+      const copy = { ...prev };
+      delete copy[questionId];
+      return copy;
+    });
+    setRevealedAnswers((prev) => ({ ...prev, [questionId]: false }));
   };
 
   const toggleUnderstood = (id: string) => {
@@ -279,7 +317,7 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
             }`}
           >
             <HelpCircle className="w-4 h-4 text-[#F1C40F]" />
-            <span>30 Practice Questions</span>
+            <span>30 Practice Questions with Options</span>
             <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-neutral-900/80 text-[#F1C40F] font-bold">
               {practiceQuestions.length}
             </span>
@@ -403,7 +441,7 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
         </div>
       )}
 
-      {/* SUBTAB 2: 30 Practice Questions */}
+      {/* SUBTAB 2: 30 Practice Questions with Pick-an-Option UI */}
       {activeSubTab === 'practice' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Filter and Stats Header */}
@@ -411,13 +449,13 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h2 className="text-base font-bold text-neutral-100 flex items-center gap-2">
-                  <span>30 Analytical Practice Questions</span>
+                  <span>30 Practice Questions with Interactive Options</span>
                   <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30 font-bold">
                     {practiceQuestions.length} Total
                   </span>
                 </h2>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Open-ended, conceptual, and situational questions with complete step-by-step model answers.
+                  Pick your option (A, B, C, D) to test active understanding, then inspect comprehensive model answers.
                 </p>
               </div>
 
@@ -460,20 +498,26 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
             </div>
           </div>
 
-          {/* Practice Questions List */}
-          <div className="space-y-3.5">
+          {/* Practice Questions List with Pick-an-Option UI */}
+          <div className="space-y-4">
             {filteredPractice.length > 0 ? (
               filteredPractice.map((pq, idx) => {
-                const isRevealed = Boolean(revealedAnswers[pq.id]);
+                const { options: qOptions, correctIdx } = getQuestionOptions(pq, idx);
+                const selectedOpt = userSelectedOptions[pq.id];
+                const hasSelected = selectedOpt !== undefined;
+                const isRevealed = Boolean(revealedAnswers[pq.id]) || hasSelected;
                 const isUnderstood = Boolean(understoodQuestions[pq.id]);
 
                 return (
                   <div
                     key={pq.id}
-                    className={`p-5 rounded-2xl bg-neutral-900 border transition ${
-                      isUnderstood ? 'border-[#2ECC71]/50 bg-neutral-900/90 shadow-sm shadow-[#2ECC71]/10' : 'border-[#34495E]/60'
+                    className={`p-5 sm:p-6 rounded-2xl bg-neutral-900 border transition ${
+                      isUnderstood
+                        ? 'border-[#2ECC71]/50 bg-neutral-900/90 shadow-sm shadow-[#2ECC71]/10'
+                        : 'border-[#34495E]/60'
                     }`}
                   >
+                    {/* Header line */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="space-y-1 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -499,12 +543,21 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
                             </span>
                           )}
                         </div>
-                        <h3 className="text-sm font-bold text-neutral-100 pt-1 leading-snug">
+                        <h3 className="text-sm sm:text-base font-bold text-neutral-100 pt-1 leading-snug">
                           {pq.question}
                         </h3>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
+                        {hasSelected && (
+                          <button
+                            onClick={() => handleResetPracticeQuestion(pq.id)}
+                            title="Reset question options"
+                            className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleCopyText(pq.id, `${pq.question}\n\nModel Answer:\n${pq.sampleAnswer}`)}
                           title="Copy question and answer"
@@ -530,7 +583,58 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
                       </div>
                     </div>
 
-                    {/* Reveal Answer Toggle */}
+                    {/* Interactive Multiple Choice Options Picker */}
+                    <div className="space-y-2 mt-4">
+                      <span className="text-[11px] font-mono text-[#F1C40F] uppercase tracking-wider font-semibold block">
+                        ★ Pick Your Option:
+                      </span>
+                      {qOptions.map((opt, oIdx) => {
+                        const isChosen = selectedOpt === oIdx;
+                        const isThisCorrect = oIdx === correctIdx;
+
+                        let btnStyles = 'bg-neutral-950/70 border-[#34495E]/60 text-neutral-200 hover:border-[#8E44AD] hover:bg-neutral-850';
+
+                        if (hasSelected) {
+                          if (isThisCorrect) {
+                            btnStyles = 'bg-[#2ECC71]/15 border-[#2ECC71] text-emerald-100 ring-1 ring-[#2ECC71]/60 font-semibold';
+                          } else if (isChosen && !isThisCorrect) {
+                            btnStyles = 'bg-rose-950/40 border-rose-500 text-rose-200 ring-1 ring-rose-500/40';
+                          } else {
+                            btnStyles = 'bg-neutral-950/40 border-[#34495E]/30 text-neutral-400 opacity-60';
+                          }
+                        }
+
+                        return (
+                          <button
+                            key={oIdx}
+                            onClick={() => handlePickPracticeOption(pq.id, oIdx, correctIdx)}
+                            disabled={hasSelected}
+                            className={`w-full p-3 rounded-xl border text-left text-xs sm:text-[13px] transition flex items-start gap-3 ${btnStyles}`}
+                          >
+                            <div
+                              className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 mt-0.5 border ${
+                                hasSelected && isThisCorrect
+                                  ? 'bg-[#2ECC71] text-neutral-950 border-[#2ECC71]'
+                                  : hasSelected && isChosen && !isThisCorrect
+                                  ? 'bg-rose-500 text-neutral-950 border-rose-400'
+                                  : 'bg-neutral-900 border-[#34495E]/80 text-neutral-300'
+                              }`}
+                            >
+                              {String.fromCharCode(65 + oIdx)}
+                            </div>
+                            <span className="flex-1 leading-relaxed">{opt.replace(/^[A-D]\)\s*/, '')}</span>
+                            {hasSelected && isThisCorrect && (
+                              <CheckCircle2 className="w-4 h-4 text-[#2ECC71] shrink-0" />
+                            )}
+                            {hasSelected && isChosen && !isThisCorrect && (
+                              <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Solution Explanation & Model Answer */}
                     <div className="pt-3 mt-3 border-t border-[#34495E]/50">
                       <button
                         onClick={() => toggleRevealAnswer(pq.id)}
@@ -538,21 +642,45 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
                       >
                         {isRevealed ? (
                           <>
-                            <EyeOff className="w-3.5 h-3.5" /> Hide Model Answer
+                            <EyeOff className="w-3.5 h-3.5" /> Hide Model Solution
                           </>
                         ) : (
                           <>
-                            <Eye className="w-3.5 h-3.5" /> Reveal Model Answer
+                            <Eye className="w-3.5 h-3.5" /> Reveal Model Solution & Analysis
                           </>
                         )}
                       </button>
 
                       {isRevealed && (
-                        <div className="mt-2.5 p-4 rounded-xl bg-neutral-950 border border-[#34495E]/60 text-xs text-neutral-200 leading-relaxed whitespace-pre-wrap animate-in fade-in duration-150">
-                          <span className="text-[10px] font-bold text-[#F1C40F] uppercase tracking-wider block mb-1">
-                            Model Solution & Analysis
-                          </span>
-                          {pq.sampleAnswer}
+                        <div className="mt-2.5 p-4 rounded-xl bg-neutral-950 border border-[#34495E]/60 text-xs text-neutral-200 leading-relaxed space-y-2 animate-in fade-in duration-150">
+                          {hasSelected && (
+                            <div className="flex items-center gap-2 font-bold text-xs uppercase tracking-wider pb-1 border-b border-[#34495E]/40">
+                              {selectedOpt === correctIdx ? (
+                                <span className="text-[#2ECC71] flex items-center gap-1.5">
+                                  <CheckCircle2 className="w-4 h-4" /> Correct Option Picked!
+                                </span>
+                              ) : (
+                                <span className="text-amber-300 flex items-center gap-1.5">
+                                  <XCircle className="w-4 h-4 text-[#F1C40F]" /> Option Review & Pedagogical Takeaway
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {pq.explanation && (
+                            <p className="text-[#a569bd] font-medium leading-relaxed">
+                              {pq.explanation}
+                            </p>
+                          )}
+
+                          <div>
+                            <span className="text-[10px] font-bold text-[#F1C40F] uppercase tracking-wider block mb-1">
+                              Comprehensive Step-by-Step Model Solution
+                            </span>
+                            <div className="whitespace-pre-wrap text-neutral-300">
+                              {pq.sampleAnswer}
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
