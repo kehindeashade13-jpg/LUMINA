@@ -7,11 +7,16 @@ import { QuizTab } from './components/QuizTab';
 import { DocumentUploadModal } from './components/DocumentUploadModal';
 import { SupabaseSettingsModal } from './components/SupabaseSettingsModal';
 import { LuminaChatBar } from './components/LuminaChatBar';
-import { ActiveTab, StudyMaterial } from './types/study';
+import { AuthModal } from './components/AuthModal';
+import { RecentDocumentsSection } from './components/RecentDocumentsSection';
+import { ActiveTab, StudyMaterial, LuminaUser } from './types/study';
 import {
   fetchFullStudyDataFromSupabase,
   saveMaterialToDatabase,
   deleteMaterialFromDatabase,
+  getCurrentUser,
+  signOutUser,
+  subscribeToAuthChanges,
 } from './services/supabase';
 import {
   Loader2,
@@ -23,9 +28,11 @@ import {
   FileUp,
   Database,
   BrainCircuit,
+  LogIn,
 } from 'lucide-react';
 
 export default function App() {
+  const [user, setUser] = useState<LuminaUser | null>(null);
   const [materials, setMaterials] = useState<StudyMaterial[]>([]);
   const [currentMaterialId, setCurrentMaterialId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('notes');
@@ -34,6 +41,7 @@ export default function App() {
   // Modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Status message toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -44,17 +52,14 @@ export default function App() {
   };
 
   /**
-   * 1. Persistence Architecture (Single-Table JSONB)
-   * Loading (fetchFullStudyDataFromSupabase):
-   * On initial app load (useEffect), retrieve all materials using:
-   * const { data } = await supabase.from('study_materials').select('*')
-   * Rehydrate the React application state directly from item.full_data.
-   * If empty, initialize to an empty array ([]).
+   * 1. Persistence & Multi-User Data Isolation:
+   * Retrieve materials filtered by user_id so users only view their own files.
    */
-  const loadMaterials = async () => {
+  const loadMaterials = async (uid?: string) => {
     setIsLoading(true);
+    const targetUserId = uid !== undefined ? uid : user?.id;
     try {
-      const res = await fetchFullStudyDataFromSupabase();
+      const res = await fetchFullStudyDataFromSupabase(targetUserId);
       if (res.materials && res.materials.length > 0) {
         setMaterials(res.materials);
         setCurrentMaterialId(res.materials[0].id);
@@ -71,32 +76,78 @@ export default function App() {
     }
   };
 
+  // Initialize auth session and subscribe to session changes
   useEffect(() => {
-    loadMaterials();
+    let isMounted = true;
+
+    async function initAuth() {
+      const existingUser = await getCurrentUser();
+      if (isMounted) {
+        setUser(existingUser);
+        loadMaterials(existingUser?.id);
+      }
+    }
+
+    initAuth();
+
+    const unsubscribe = subscribeToAuthChanges((updatedUser) => {
+      setUser(updatedUser);
+      loadMaterials(updatedUser?.id);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setUser(null);
+    setMaterials([]);
+    setCurrentMaterialId(null);
+    showToast('Logged out successfully.');
+    loadMaterials('');
+  };
 
   const currentMaterial = materials.find((m) => m.id === currentMaterialId) || materials[0] || null;
 
-  /**
-   * Saving (saveMaterialToDatabase):
-   * When user uploads or updates study content, package the entire item state
-   * into a single object and write it into the full_data JSONB column
-   */
+  const handleSelectMaterial = (mat: StudyMaterial) => {
+    setCurrentMaterialId(mat.id);
+    // Mark as accessed
+    const touched: StudyMaterial = {
+      ...mat,
+      lastAccessedAt: new Date().toISOString(),
+    };
+    setMaterials((prev) => prev.map((m) => (m.id === mat.id ? touched : m)));
+    saveMaterialToDatabase(touched, user?.id);
+  };
+
   const handleDocumentCreated = (newMaterial: StudyMaterial) => {
-    setMaterials((prev) => [newMaterial, ...prev]);
-    setCurrentMaterialId(newMaterial.id);
+    const stamped = {
+      ...newMaterial,
+      userId: user?.id,
+      lastAccessedAt: new Date().toISOString(),
+    };
+    setMaterials((prev) => [stamped, ...prev]);
+    setCurrentMaterialId(stamped.id);
     setActiveTab('notes');
-    showToast(`"${newMaterial.title}" generated and persisted to Supabase!`);
+    showToast(`"${stamped.title}" generated and saved to your private study workspace!`);
   };
 
   const handleUpdateMaterial = (updated: StudyMaterial) => {
-    setMaterials((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
-    saveMaterialToDatabase(updated);
+    const stamped = {
+      ...updated,
+      userId: user?.id || updated.userId,
+      lastAccessedAt: new Date().toISOString(),
+    };
+    setMaterials((prev) => prev.map((m) => (m.id === stamped.id ? stamped : m)));
+    saveMaterialToDatabase(stamped, user?.id);
   };
 
   const handleDeleteMaterial = async (id: string) => {
     const toDelete = materials.find((m) => m.id === id);
-    await deleteMaterialFromDatabase(id);
+    await deleteMaterialFromDatabase(id, user?.id);
     setMaterials((prev) => {
       const filtered = prev.filter((m) => m.id !== id);
       if (currentMaterialId === id) {
@@ -115,9 +166,12 @@ export default function App() {
         setActiveTab={setActiveTab}
         materials={materials}
         currentMaterial={currentMaterial}
-        onSelectMaterial={(mat) => setCurrentMaterialId(mat.id)}
+        onSelectMaterial={handleSelectMaterial}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
         onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        user={user}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Workspace Viewport */}
@@ -141,7 +195,7 @@ export default function App() {
             </div>
 
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-3">
-              LUMINA Study Workspace
+              {user ? `Welcome back, ${user.fullName}` : 'LUMINA Study Workspace'}
             </span>
 
             <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-100 tracking-tight">
@@ -149,7 +203,9 @@ export default function App() {
             </h2>
 
             <p className="text-sm text-neutral-400 mt-2.5 leading-relaxed max-w-lg">
-              Upload study documents (PDFs, text files, lecture notes) to automatically generate comprehensive AI study guides, interactive 3D flashcards, and adaptive quizzes. All data persists in your single-table Supabase database.
+              {user
+                ? `Welcome to your private study workspace, ${user.fullName.split(' ')[0]}. Upload study documents (PDFs, text files, lecture notes) to automatically generate comprehensive AI study guides, interactive 3D flashcards, and adaptive quizzes with isolated persistence.`
+                : 'Upload study documents (PDFs, text files, lecture notes) to automatically generate comprehensive AI study guides, interactive 3D flashcards, and adaptive quizzes. All data persists in your single-table Supabase database.'}
             </p>
 
             {/* Action Buttons */}
@@ -160,6 +216,16 @@ export default function App() {
               >
                 <Plus className="w-4 h-4" /> Upload Your First Document
               </button>
+
+              {!user && (
+                <button
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-200 text-sm font-medium flex items-center justify-center gap-2 transition"
+                >
+                  <LogIn className="w-4 h-4 text-indigo-400" /> Sign In / Create Account
+                </button>
+              )}
+
               <button
                 onClick={() => setIsSettingsModalOpen(true)}
                 className="w-full sm:w-auto px-5 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 text-sm font-medium flex items-center justify-center gap-2 transition"
@@ -203,11 +269,20 @@ export default function App() {
           </div>
         ) : (
           <>
+            {/* Recent Files Section */}
+            <RecentDocumentsSection
+              materials={materials}
+              currentMaterial={currentMaterial}
+              onSelectMaterial={handleSelectMaterial}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+              onOpenUploadModal={() => setIsUploadModalOpen(true)}
+            />
+
             {activeTab === 'documents' && (
               <DocumentsTab
                 materials={materials}
                 currentMaterial={currentMaterial}
-                onSelectMaterial={(mat) => setCurrentMaterialId(mat.id)}
+                onSelectMaterial={handleSelectMaterial}
                 onDeleteMaterial={handleDeleteMaterial}
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
@@ -248,6 +323,18 @@ export default function App() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onDocumentCreated={handleDocumentCreated}
+        userId={user?.id}
+      />
+
+      {/* Auth Modal (Sign In / Sign Up) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={(authedUser) => {
+          setUser(authedUser);
+          loadMaterials(authedUser.id);
+          showToast(`Welcome, ${authedUser.fullName}!`);
+        }}
       />
 
       {/* Supabase & Gemini Settings Modal */}

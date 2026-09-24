@@ -31,10 +31,12 @@ export interface GlossaryTerm {
 
 export interface StudyMaterial {
   id: string;
+  userId?: string;
   title: string;
   subject: string;
   createdAt: string;
   updatedAt: string;
+  lastAccessedAt?: string;
   fileName?: string;
   fileType?: string;
   fileSize?: string;
@@ -47,6 +49,13 @@ export interface StudyMaterial {
   quiz: QuizQuestion[];
   tags: string[];
   estimatedReadTimeMinutes?: number;
+}
+
+export interface LuminaUser {
+  id: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string;
 }
 
 export interface ChatMessage {

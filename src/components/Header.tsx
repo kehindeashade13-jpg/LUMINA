@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
   BookOpen,
@@ -9,8 +9,12 @@ import {
   Database,
   Settings,
   ChevronDown,
+  User,
+  LogOut,
+  LogIn,
+  ShieldCheck,
 } from 'lucide-react';
-import { ActiveTab, StudyMaterial } from '../types/study';
+import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
 import { isSupabaseConfigured } from '../services/supabase';
 
 interface HeaderProps {
@@ -21,6 +25,9 @@ interface HeaderProps {
   onSelectMaterial: (material: StudyMaterial) => void;
   onOpenUploadModal: () => void;
   onOpenSettingsModal: () => void;
+  user: LuminaUser | null;
+  onOpenAuthModal: () => void;
+  onSignOut: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,11 +38,30 @@ export const Header: React.FC<HeaderProps> = ({
   onSelectMaterial,
   onOpenUploadModal,
   onOpenSettingsModal,
+  user,
+  onOpenAuthModal,
+  onSignOut,
 }) => {
   const supabaseConnected = isSupabaseConfigured();
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const flashcardCount = currentMaterial?.flashcards.length || 0;
   const quizCount = currentMaterial?.quiz.length || 0;
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const userInitial = user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'S';
+  const firstName = user?.fullName ? user.fullName.split(' ')[0] : 'Scholar';
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-neutral-800/80 bg-neutral-950/95 backdrop-blur-md">
@@ -62,6 +88,16 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
             </div>
+
+            {/* Personalized Greeting */}
+            {user && (
+              <div className="hidden xl:flex items-center gap-1.5 pl-3 border-l border-neutral-800 text-xs text-neutral-400">
+                <span>Welcome back,</span>
+                <span className="font-semibold text-neutral-200 truncate max-w-[120px]">
+                  {firstName}
+                </span>
+              </div>
+            )}
 
             {/* Document Selector Dropdown */}
             {materials.length > 0 && (
@@ -203,6 +239,71 @@ export const Header: React.FC<HeaderProps> = ({
               <Settings className="w-4 h-4" />
             </button>
 
+            {/* User Profile Menu / Logout Button */}
+            {user ? (
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center gap-2 p-1.5 pl-2 rounded-xl bg-neutral-900 border border-neutral-800 hover:border-neutral-700 transition text-left"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm">
+                    {userInitial}
+                  </div>
+                  <span className="hidden lg:inline text-xs font-semibold text-neutral-200 max-w-[90px] truncate">
+                    {firstName}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 text-neutral-500" />
+                </button>
+
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl p-3 z-50 animate-in fade-in duration-100">
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-neutral-800">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shrink-0">
+                        {userInitial}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-neutral-100 truncate">
+                          {user.fullName}
+                        </p>
+                        <p className="text-[11px] text-neutral-400 truncate">{user.email}</p>
+                      </div>
+                    </div>
+
+                    <div className="py-2 text-[11px] text-neutral-400 space-y-1">
+                      <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Data Isolated (Row-Level Security)</span>
+                      </div>
+                      <p className="text-[10px] text-neutral-500">
+                        All your documents and study data are private.
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-neutral-800">
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          onSignOut();
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-red-950/30 hover:bg-red-950/60 border border-red-800/40 text-red-300 text-xs font-semibold flex items-center justify-center gap-2 transition"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Log Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuthModal}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-200 text-xs font-semibold transition"
+              >
+                <LogIn className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Sign In</span>
+              </button>
+            )}
+
             {/* Upload Document Primary CTA */}
             <button
               onClick={onOpenUploadModal}
@@ -228,7 +329,14 @@ export const Header: React.FC<HeaderProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                 </div>
               </div>
-              <span className="text-sm font-black tracking-wider text-white">LUMINA</span>
+              <div>
+                <span className="text-sm font-black tracking-wider text-white">LUMINA</span>
+                {user && (
+                  <span className="block text-[10px] text-neutral-400 -mt-0.5 truncate max-w-[85px]">
+                    Hi, {firstName}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Document Selector on Mobile */}
@@ -262,8 +370,24 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
-            {/* Mobile Actions */}
+            {/* Mobile Actions: User Profile / Sign In, Settings, Upload */}
             <div className="flex items-center gap-1.5 shrink-0">
+              {user ? (
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm"
+                >
+                  {userInitial}
+                </button>
+              ) : (
+                <button
+                  onClick={onOpenAuthModal}
+                  className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white transition"
+                >
+                  <User className="w-3.5 h-3.5 text-indigo-400" />
+                </button>
+              )}
+
               <button
                 onClick={onOpenSettingsModal}
                 title="Settings"

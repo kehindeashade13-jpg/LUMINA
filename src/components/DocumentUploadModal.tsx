@@ -18,12 +18,14 @@ interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDocumentCreated: (material: StudyMaterial) => void;
+  userId?: string;
 }
 
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   isOpen,
   onClose,
   onDocumentCreated,
+  userId,
 }) => {
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [title, setTitle] = useState('');
@@ -89,9 +91,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         selectedFile ? selectedFile.name : undefined
       );
 
-      // 2. Persist to Supabase single-table study_materials
+      // 2. Persist to Supabase single-table study_materials with user isolation
+      if (userId) {
+        material.userId = userId;
+      }
       setLoadingStep('Persisting study suite to Supabase (study_materials)...');
-      await saveMaterialToDatabase(material);
+      await saveMaterialToDatabase(material, userId);
 
       setLoadingStep('Complete!');
       onDocumentCreated(material);
