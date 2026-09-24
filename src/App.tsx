@@ -5,7 +5,6 @@ import { StudyGuideTab } from './components/StudyGuideTab';
 import { FlashcardsTab } from './components/FlashcardsTab';
 import { QuizTab } from './components/QuizTab';
 import { DocumentUploadModal } from './components/DocumentUploadModal';
-import { SupabaseSettingsModal } from './components/SupabaseSettingsModal';
 import { LuminaChatBar } from './components/LuminaChatBar';
 import { AuthModal } from './components/AuthModal';
 import { RecentDocumentsSection } from './components/RecentDocumentsSection';
@@ -27,7 +26,6 @@ import {
   Layers,
   HelpCircle,
   FileUp,
-  Database,
   BrainCircuit,
   LogIn,
 } from 'lucide-react';
@@ -41,7 +39,6 @@ export default function App() {
 
   // Modals & Drawers
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -170,7 +167,6 @@ export default function App() {
         currentMaterial={currentMaterial}
         onSelectMaterial={handleSelectMaterial}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
-        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         user={user}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
@@ -228,13 +224,6 @@ export default function App() {
                   <LogIn className="w-4 h-4 text-indigo-400" /> Sign In / Create Account
                 </button>
               )}
-
-              <button
-                onClick={() => setIsSettingsModalOpen(true)}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 text-sm font-medium flex items-center justify-center gap-2 transition"
-              >
-                <Database className="w-4 h-4 text-indigo-400" /> Supabase Settings
-              </button>
             </div>
 
             {/* Feature Highlights Grid */}
@@ -332,7 +321,6 @@ export default function App() {
         currentMaterial={currentMaterial}
         onSelectMaterial={handleSelectMaterial}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
-        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
       />
@@ -354,13 +342,6 @@ export default function App() {
           loadMaterials(authedUser.id);
           showToast(`Welcome, ${authedUser.fullName}!`);
         }}
-      />
-
-      {/* Supabase & Gemini Settings Modal */}
-      <SupabaseSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        onRefreshData={loadMaterials}
       />
 
       {/* Toast Notification */}

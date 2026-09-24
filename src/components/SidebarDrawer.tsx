@@ -6,18 +6,14 @@ import {
   FileText,
   Layers,
   HelpCircle,
-  Settings,
   Clock,
   User,
   LogOut,
   LogIn,
   Plus,
-  Database,
   ChevronRight,
-  ShieldCheck,
 } from 'lucide-react';
 import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
-import { isSupabaseConfigured } from '../services/supabase';
 
 interface SidebarDrawerProps {
   isOpen: boolean;
@@ -29,7 +25,6 @@ interface SidebarDrawerProps {
   currentMaterial: StudyMaterial | null;
   onSelectMaterial: (material: StudyMaterial) => void;
   onOpenUploadModal: () => void;
-  onOpenSettingsModal: () => void;
   onOpenAuthModal: () => void;
   onSignOut: () => void;
 }
@@ -44,13 +39,11 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   currentMaterial,
   onSelectMaterial,
   onOpenUploadModal,
-  onOpenSettingsModal,
   onOpenAuthModal,
   onSignOut,
 }) => {
   if (!isOpen) return null;
 
-  const supabaseConnected = isSupabaseConfigured();
   const userInitial = user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'S';
 
   const handleNavClick = (tab: ActiveTab) => {
@@ -85,9 +78,6 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
             </div>
             <div>
               <span className="text-base font-black tracking-wider text-white">LUMINA</span>
-              <span className="text-[10px] font-bold text-indigo-400 ml-1.5 px-1.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                AI
-              </span>
             </div>
           </div>
 
@@ -141,7 +131,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 </div>
                 <p className="text-xs font-bold text-neutral-200">Guest Scholar</p>
                 <p className="text-[11px] text-neutral-500 mb-3">
-                  Sign in to sync your study materials across devices
+                  Sign in to access and sync your study workspace
                 </p>
                 <button
                   onClick={() => {
@@ -151,7 +141,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                   className="w-full py-2 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/20 transition active:scale-95"
                 >
                   <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In / Register</span>
+                  <span>Sign In / Create Account</span>
                 </button>
               </div>
             )}
@@ -295,32 +285,6 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
             <Plus className="w-4 h-4 text-indigo-400" />
             <span>Upload New Document</span>
           </button>
-        </div>
-
-        {/* Drawer Footer: Settings & Status */}
-        <div className="p-4 border-t border-neutral-800/80 bg-neutral-950 space-y-2">
-          <button
-            onClick={() => {
-              onClose();
-              onOpenSettingsModal();
-            }}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-neutral-900/60 hover:bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 hover:text-white transition"
-          >
-            <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4 text-neutral-400" />
-              <span>Settings & API Keys</span>
-            </div>
-            <span
-              className={`w-2 h-2 rounded-full ${
-                supabaseConnected ? 'bg-emerald-400' : 'bg-amber-400'
-              }`}
-            />
-          </button>
-
-          <div className="flex items-center justify-between text-[10px] text-neutral-500 px-1 font-mono">
-            <span>{supabaseConnected ? 'Supabase Connected' : 'Local Storage Cache'}</span>
-            <span>v1.2</span>
-          </div>
         </div>
       </div>
     </div>
