@@ -413,25 +413,111 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
 
                   {!isCollapsed && (
                     <div className="p-6 pt-2 border-t border-[#34495E]/40 space-y-4">
-                      <div className="text-xs sm:text-sm text-neutral-300 leading-relaxed whitespace-pre-wrap">
-                        {section.content}
-                      </div>
+                      {(() => {
+                        const lines = section.content.split('\n').map((l) => l.trim()).filter(Boolean);
+                        const takeaways: string[] = section.keyTakeaways && section.keyTakeaways.length > 0 ? section.keyTakeaways : [];
+                        const steps: string[] = [];
+                        const vitalConcepts: { term: string; definition: string }[] = [];
 
-                      {section.keyTakeaways && section.keyTakeaways.length > 0 && (
-                        <div className="p-3.5 rounded-xl bg-neutral-950/80 border border-[#34495E]/50">
-                          <span className="text-[10px] font-bold text-[#F1C40F] uppercase tracking-wider block mb-2">
-                            Module Takeaways
-                          </span>
-                          <ul className="space-y-1.5 text-xs text-neutral-300">
-                            {section.keyTakeaways.map((takeaway, tIdx) => (
-                              <li key={tIdx} className="flex items-start gap-2">
-                                <span className="text-[#8E44AD] font-bold">•</span>
-                                <span>{takeaway}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                        let currentSection = 'steps';
+
+                        for (const line of lines) {
+                          const lower = line.toLowerCase();
+                          if (lower.includes('takeaway') || lower.includes('key point')) {
+                            currentSection = 'takeaways';
+                            continue;
+                          }
+                          if (lower.includes('step') || lower.includes('lesson') || lower.includes('sequence')) {
+                            currentSection = 'steps';
+                            continue;
+                          }
+                          if (lower.includes('vital') || lower.includes('formula') || lower.includes('concept')) {
+                            currentSection = 'vital';
+                            continue;
+                          }
+
+                          if (currentSection === 'takeaways' && (line.startsWith('*') || line.startsWith('-') || /^\d+\./.test(line))) {
+                            takeaways.push(line.replace(/^[\*\-\d\.\s]+/, ''));
+                          } else if (currentSection === 'steps' || /^\d+\./.test(line)) {
+                            steps.push(line.replace(/^[\*\-\d\.\s]+/, ''));
+                          } else if (currentSection === 'vital' || line.includes(':')) {
+                            const parts = line.replace(/^[\*\-\d\.\s]+/, '').split(':');
+                            if (parts.length >= 2) {
+                              vitalConcepts.push({ term: parts[0].replace(/\*\*/g, '').trim(), definition: parts.slice(1).join(':').trim() });
+                            } else {
+                              steps.push(line.replace(/^[\*\-\d\.\s]+/, ''));
+                            }
+                          } else {
+                            steps.push(line);
+                          }
+                        }
+
+                        if (steps.length === 0) {
+                          steps.push(section.content);
+                        }
+
+                        // If vitalConcepts is empty, extract capitalized terms or bold terms as vital concepts
+                        if (vitalConcepts.length === 0 && material.glossary.length > 0) {
+                          material.glossary.slice(0, 3).forEach((g) => {
+                            vitalConcepts.push({ term: g.term, definition: g.definition });
+                          });
+                        }
+
+                        return (
+                          <div className="space-y-4">
+                            {/* 1. Step-by-Step Lessons */}
+                            <div className="p-4 rounded-2xl bg-neutral-950/80 border border-[#34495E]/60 shadow-inner">
+                              <h4 className="text-xs font-bold text-[#F1C40F] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                <span>Step-by-Step Lessons</span>
+                              </h4>
+                              <ol className="space-y-2 text-xs sm:text-sm text-neutral-200">
+                                {steps.map((step, sIdx) => (
+                                  <li key={sIdx} className="flex items-start gap-2.5 leading-relaxed">
+                                    <span className="w-5 h-5 rounded-md bg-[#8E44AD]/30 text-[#a569bd] font-mono font-bold text-[11px] flex items-center justify-center shrink-0 mt-0.5 border border-[#8E44AD]/50">
+                                      {sIdx + 1}
+                                    </span>
+                                    <span>{step}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+
+                            {/* 2. Key Takeaways */}
+                            {takeaways.length > 0 && (
+                              <div className="p-4 rounded-2xl bg-[#8E44AD]/10 border border-[#8E44AD]/30 shadow-inner">
+                                <h4 className="text-xs font-bold text-[#a569bd] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                  <span>Key Takeaways (3–5 Core Concepts)</span>
+                                </h4>
+                                <ul className="space-y-2 text-xs sm:text-sm text-neutral-200">
+                                  {takeaways.slice(0, 5).map((t, tIdx) => (
+                                    <li key={tIdx} className="flex items-start gap-2.5 leading-relaxed">
+                                      <span className="text-[#2ECC71] font-bold text-sm">✓</span>
+                                      <span>{t}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* 3. Vital Concepts & Formulas */}
+                            {vitalConcepts.length > 0 && (
+                              <div className="p-4 rounded-2xl bg-neutral-950/90 border border-[#34495E]/60 shadow-inner">
+                                <h4 className="text-xs font-bold text-[#2ECC71] uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                  <span>Vital Concepts & Formulas</span>
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {vitalConcepts.slice(0, 4).map((vc, vIdx) => (
+                                    <div key={vIdx} className="p-2.5 rounded-xl bg-neutral-900 border border-[#34495E]/50 text-xs">
+                                      <strong className="text-white font-semibold block mb-0.5">{vc.term}</strong>
+                                      <span className="text-neutral-300 leading-snug">{vc.definition}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

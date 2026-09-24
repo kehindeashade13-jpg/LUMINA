@@ -258,6 +258,29 @@ CORE INSTRUCTIONS:
   }
 }
 
+function shuffleQuizOptions(options: string[], correctOriginalIndex: number = 0): { options: string[]; correctIndex: number } {
+  if (!options || options.length < 4) {
+    return { options: ['A) Correct choice', 'B) Distractor 1', 'C) Distractor 2', 'D) Distractor 3'], correctIndex: 0 };
+  }
+  const cleanCorrect = (options[correctOriginalIndex] || options[0]).replace(/^[A-D]\)\s*/, '');
+  const distractors = options
+    .filter((_, idx) => idx !== correctOriginalIndex)
+    .map(o => o.replace(/^[A-D]\)\s*/, ''));
+
+  while (distractors.length < 3) {
+    distractors.push(`Alternative mechanism ${distractors.length + 1} associated with alternate operational conditions.`);
+  }
+
+  const shuffledDistractors = [...distractors].sort(() => Math.random() - 0.5).slice(0, 3);
+  const newCorrectIndex = Math.floor(Math.random() * 4);
+
+  const finalOpts = [...shuffledDistractors];
+  finalOpts.splice(newCorrectIndex, 0, cleanCorrect);
+
+  const lettered = finalOpts.map((opt, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${opt}`);
+  return { options: lettered, correctIndex: newCorrectIndex };
+}
+
 function cleanJsonString(raw: string): string {
   let cleaned = raw.trim();
   if (cleaned.startsWith('```json')) {
@@ -301,53 +324,51 @@ ${truncatedText}
 
 Format as a single JSON object with EXACTLY this structure:
 {
-  "summary": "An exhaustive, comprehensive multi-paragraph executive summary detailing all core theories, foundational frameworks, mechanisms, and real-world implications without omitting any crucial concepts.",
+  "summary": "A concise executive summary outlining the core thesis and foundational concepts.",
   "keyPoints": [
-    "High-yield key principle 1",
-    "High-yield key principle 2",
-    "High-yield key principle 3",
-    "High-yield key principle 4",
-    "High-yield key principle 5",
-    "High-yield key principle 6",
-    "High-yield key principle 7",
-    "High-yield key principle 8"
+    "High-yield core principle 1",
+    "High-yield core principle 2",
+    "High-yield core principle 3",
+    "High-yield core principle 4",
+    "High-yield core principle 5"
   ],
   "glossary": [
-    { "term": "Technical Term 1", "definition": "Precise, exhaustive academic definition" },
-    { "term": "Technical Term 2", "definition": "Precise, exhaustive academic definition" }
+    { "term": "Technical Term 1", "definition": "One-sentence plain-language definition." },
+    { "term": "Technical Term 2", "definition": "One-sentence plain-language definition." }
   ],
   "sections": [
     {
-      "title": "Module 1: [Chronological Subtopic Heading]",
-      "content": "In-depth, granular lesson content breaking down the entire subtopic with markdown formatting, bold keywords, operational steps, formulas, and deep contextual explanations.",
+      "title": "Module 1: [Subtopic Heading]",
+      "content": "### Key Takeaways\\n* Takeaway 1\\n* Takeaway 2\\n* Takeaway 3\\n\\n### Step-by-Step Lessons\\n1. Step one explanation.\\n2. Step two explanation.\\n3. Step three explanation.\\n\\n### Vital Concepts & Formulas\\n* **Term 1**: Definition.\\n* **Term 2**: Definition.",
       "keyTakeaways": ["Core takeaway A", "Core takeaway B", "Core takeaway C"]
     }
   ],
   "practiceQuestions": [
     {
       "id": "pq_1",
-      "question": "Comprehensive analytical question examining a specific paragraph or mechanism in the text",
+      "question": "Analytical practice question examining a specific mechanism in the text",
       "options": [
-        "A) Plausible conceptual answer choice",
-        "B) Correct, precise analytical choice",
-        "C) Plausible distractor choice",
-        "D) Alternative common misconception"
+        "A) Plausible distractor",
+        "B) Correct precise answer",
+        "C) Plausible distractor",
+        "D) Common misconception"
       ],
       "correctOptionIndex": 1,
-      "sampleAnswer": "Thorough, step-by-step model answer explaining the underlying principles and reasoning.",
-      "explanation": "Clear explanation of why this option is correct and key analytical takeaway.",
+      "sampleAnswer": "Step-by-step model answer explaining the underlying principle.",
+      "explanation": "Clear explanation of why this option is correct.",
       "topic": "Subtopic Name",
       "difficulty": "intermediate"
     }
   ],
-  "tags": ["Tag1", "Tag2", "Tag3"],
-  "estimatedReadTimeMinutes": 10
+  "tags": ["Tag1", "Tag2"],
+  "estimatedReadTimeMinutes": 8
 }
 
 REQUIREMENTS:
-1. Provide at least 5-8 chronological Step-by-Step Lesson Modules ('sections') covering every subtopic in depth.
-2. Provide at least 10-15 glossary terms.
-3. Provide EXACTLY 30 diverse Practice Questions. Each practice question MUST have 4 distinct multiple choice options ('options': 4 strings) and 'correctOptionIndex' (0-3), in addition to the thorough 'sampleAnswer'.`;
+1. Provide at least 5 chronological Step-by-Step Lesson Modules ('sections').
+2. In each section 'content', use strict structured format: ### Key Takeaways (bullet points), ### Step-by-Step Lessons (numbered steps), and ### Vital Concepts & Formulas (bolded terms with 1-sentence definitions). NO long essays or walls of text.
+3. Provide at least 10-15 glossary terms.
+4. Provide EXACTLY 30 diverse Practice Questions with 4 options and correctOptionIndex (0-3).`;
 
   // Phase 2 Prompt: 30 Interactive Flashcards + 30 Rigorous Multiple Choice Quizzes
   const promptPart2 = `Create a massive 60-item active recall assessment suite for the following document.
@@ -377,24 +398,22 @@ Format as a single JSON object with EXACTLY this structure:
   ],
   "quiz": [
     {
-      "id": "q_1",
-      "question": "Challenging multiple-choice question testing conceptual understanding, application, or edge cases",
+      "question": "What is...?",
       "options": [
-        "A) Option description",
-        "B) Option description",
-        "C) Option description",
-        "D) Option description"
+        "Correct choice based on document text",
+        "Plausible distinct distractor 1",
+        "Plausible distinct distractor 2",
+        "Plausible distinct distractor 3"
       ],
-      "correctAnswerIndex": 0,
-      "explanation": "Detailed pedagogical explanation detailing why the correct option is right and why each distractor is incorrect."
+      "correctIndex": 0,
+      "explanation": "Detailed explanation why the correct choice is right and others are incorrect."
     }
   ]
 }
 
 REQUIREMENTS:
-1. Generate EXACTLY 30 Flashcards with 'options' (4 choices so users can pick options or flip) and 'correctOptionIndex' (0-3).
-2. Generate EXACTLY 30 Multiple Choice Quizzes (4 distinct choices each, correctAnswerIndex 0-3, and comprehensive explanations).
-3. Ensure no truncation; write complete, rigorous items.`;
+1. Generate EXACTLY 30 Flashcards with 'options' (4 choices) and 'correctOptionIndex' (0-3).
+2. Generate EXACTLY 30 Multiple Choice Quizzes. Every question MUST have 4 completely distinct options (A, B, C, D) extracted directly from facts, definitions, or formulas in the uploaded document. NEVER repeat option strings or placeholders. correctIndex must point to the correct answer index (0-3).`;
 
   try {
     // Run both high-yield generation requests concurrently
@@ -461,13 +480,18 @@ REQUIREMENTS:
     // Parse Quiz Questions (Target: 30 items)
     let quiz: QuizQuestion[] = [];
     if (Array.isArray(parsed2.quiz)) {
-      quiz = parsed2.quiz.map((q: any, idx: number) => ({
-        id: `q_${idx + 1}_${Date.now()}`,
-        question: q.question || `Conceptual Assessment Question ${idx + 1}`,
-        options: Array.isArray(q.options) && q.options.length >= 4 ? q.options : ['A', 'B', 'C', 'D'],
-        correctAnswerIndex: typeof q.correctAnswerIndex === 'number' && q.correctAnswerIndex >= 0 && q.correctAnswerIndex < 4 ? q.correctAnswerIndex : 0,
-        explanation: q.explanation || 'Detailed pedagogical rationale verified by LUMINA.',
-      }));
+      quiz = parsed2.quiz.map((q: any, idx: number) => {
+        const rawOpts = Array.isArray(q.options) && q.options.length >= 4 ? q.options : ['Correct choice', 'Distractor 1', 'Distractor 2', 'Distractor 3'];
+        const rawIdx = typeof q.correctIndex === 'number' ? q.correctIndex : (typeof q.correctAnswerIndex === 'number' ? q.correctAnswerIndex : 0);
+        const shuffled = shuffleQuizOptions(rawOpts, rawIdx);
+        return {
+          id: `q_${idx + 1}_${Date.now()}`,
+          question: q.question || `Conceptual Assessment Question ${idx + 1}`,
+          options: shuffled.options,
+          correctAnswerIndex: shuffled.correctIndex,
+          explanation: q.explanation || 'Detailed pedagogical rationale verified by LUMINA.',
+        };
+      });
     }
     quiz = guarantee30QuizQuestions(quiz, sections, glossary, rawText, title, subject);
 
@@ -758,7 +782,7 @@ function guarantee30PracticeQuestions(
 }
 
 /**
- * Guarantees exactly 30 rich Quiz Questions
+ * Guarantees exactly 30 rich Quiz Questions with shuffled distinct options
  */
 function guarantee30QuizQuestions(
   existing: QuizQuestion[],
@@ -768,7 +792,16 @@ function guarantee30QuizQuestions(
   title: string,
   subject: string
 ): QuizQuestion[] {
-  const result: QuizQuestion[] = [...existing];
+  const result: QuizQuestion[] = existing.map(q => {
+    const rawOpts = q.options && q.options.length >= 4 ? q.options : ['Correct answer', 'Distractor 1', 'Distractor 2', 'Distractor 3'];
+    const rawIdx = typeof q.correctAnswerIndex === 'number' ? q.correctAnswerIndex : 0;
+    const shuffled = shuffleQuizOptions(rawOpts, rawIdx);
+    return {
+      ...q,
+      options: shuffled.options,
+      correctAnswerIndex: shuffled.correctIndex,
+    };
+  });
   const target = 30;
 
   if (result.length >= target) {
@@ -778,35 +811,40 @@ function guarantee30QuizQuestions(
   // Derive from glossary
   glossary.forEach((term) => {
     if (result.length < target) {
+      const rawOpts = [
+        term.definition,
+        `A secondary phenomenon occurring exclusively in isolated non-equilibrium states.`,
+        `An obsolete hypothesis refuted by modern empirical studies in ${subject}.`,
+        `An arbitrary coefficient used solely for formatting in ${title}.`,
+      ];
+      const shuffled = shuffleQuizOptions(rawOpts, 0);
       result.push({
         id: `q_gen_${result.length + 1}_${Date.now()}`,
         question: `In the study of "${title}", how is "${term.term}" most accurately defined?`,
-        options: [
-          `A) ${term.definition}`,
-          `B) A secondary phenomenon that occurs only when all system parameters are held at absolute zero.`,
-          `C) An obsolete hypothesis that has been completely refuted by modern empirical studies.`,
-          `D) An arbitrary coefficient used solely for aesthetic formatting.`,
-        ],
-        correctAnswerIndex: 0,
-        explanation: `Option A is correct: "${term.term}" is defined as ${term.definition}. Distractors B, C, and D represent incorrect descriptions.`,
+        options: shuffled.options,
+        correctAnswerIndex: shuffled.correctIndex,
+        explanation: `"${term.term}" is defined as: ${term.definition}.`,
       });
     }
   });
 
   // Derive from sections
-  sections.forEach((sec, idx) => {
+  sections.forEach((sec) => {
     if (result.length < target) {
+      const takeaway = sec.keyTakeaways?.[0] || `Core mechanism governing ${sec.title}`;
+      const rawOpts = [
+        takeaway,
+        `System equilibrium remains completely unaffected by operational stress.`,
+        `Baseline theoretical assumptions automatically bypass boundary constraints.`,
+        `Fundamental laws of physics reverse direction under steady-state conditions.`,
+      ];
+      const shuffled = shuffleQuizOptions(rawOpts, 0);
       result.push({
         id: `q_gen_${result.length + 1}_${Date.now()}`,
         question: `According to ${sec.title}, what is the primary consequence of violating boundary constraints?`,
-        options: [
-          `A) System equilibrium remains completely unchanged regardless of stress.`,
-          `B) Baseline theoretical assumptions fail, leading to invalid predictive models and unexpected system states.`,
-          `C) Calculations automatically self-correct without further user intervention.`,
-          `D) The fundamental laws of physics reverse direction.`,
-        ],
-        correctAnswerIndex: 1,
-        explanation: `Option B is correct: In ${sec.title}, the text emphasizes that operating outside verified boundary conditions invalidates standard baseline assumptions.`,
+        options: shuffled.options,
+        correctAnswerIndex: shuffled.correctIndex,
+        explanation: `In ${sec.title}, the text emphasizes: ${takeaway}`,
       });
     }
   });
@@ -814,27 +852,19 @@ function guarantee30QuizQuestions(
   // Fill up to 30
   while (result.length < target) {
     const num = result.length + 1;
-    const correctIdx = num % 4;
-    const options = [
-      `A) Structured underlying causal mechanisms determine observable outcomes across ${subject}.`,
-      `B) Experimental outcomes are entirely arbitrary and cannot be modeled scientifically.`,
-      `C) Qualitative descriptions override all empirical data and mathematical formulas.`,
-      `D) External variables can be disregarded in every analytical circumstance.`,
+    const rawOpts = [
+      `Structured underlying causal mechanisms determine observable outcomes across ${subject}.`,
+      `Experimental outcomes are entirely arbitrary and cannot be modeled scientifically.`,
+      `Qualitative descriptions override all empirical data and mathematical formulas.`,
+      `External variables can be disregarded in every analytical circumstance.`,
     ];
-
-    if (correctIdx !== 0) {
-      // Rotate correct answer
-      const temp = options[0];
-      options[0] = options[correctIdx];
-      options[correctIdx] = temp;
-    }
-
+    const shuffled = shuffleQuizOptions(rawOpts, 0);
     result.push({
       id: `q_gen_${num}_${Date.now()}`,
       question: `Question ${num}: Which analytical principle represents the standard methodology in "${title}" (*${subject}*)?`,
-      options,
-      correctAnswerIndex: correctIdx,
-      explanation: `Option ${String.fromCharCode(65 + correctIdx)} is correct: Rigorous scientific analysis requires evaluating structured underlying mechanisms and validating empirical benchmarks.`,
+      options: shuffled.options,
+      correctAnswerIndex: shuffled.correctIndex,
+      explanation: `Rigorous scientific analysis requires evaluating structured underlying mechanisms and validating empirical benchmarks.`,
     });
   }
 
