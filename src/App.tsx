@@ -9,6 +9,7 @@ import { SupabaseSettingsModal } from './components/SupabaseSettingsModal';
 import { LuminaChatBar } from './components/LuminaChatBar';
 import { AuthModal } from './components/AuthModal';
 import { RecentDocumentsSection } from './components/RecentDocumentsSection';
+import { SidebarDrawer } from './components/SidebarDrawer';
 import { ActiveTab, StudyMaterial, LuminaUser } from './types/study';
 import {
   fetchFullStudyDataFromSupabase,
@@ -38,10 +39,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('notes');
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Modals
+  // Modals & Drawers
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Status message toast
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -172,10 +174,11 @@ export default function App() {
         user={user}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
         onSignOut={handleSignOut}
+        onOpenSidebar={() => setIsSidebarOpen(true)}
       />
 
       {/* Main Workspace Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 sm:pb-32">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 sm:pb-20">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-neutral-400">
             <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
@@ -315,8 +318,24 @@ export default function App() {
         )}
       </main>
 
-      {/* Persistent & Floating Conversational Chat Bar across all views */}
+      {/* Persistent & Floating Conversational Chat Logo in Bottom Right */}
       <LuminaChatBar material={currentMaterial} />
+
+      {/* Navigation Sidebar Drawer */}
+      <SidebarDrawer
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        user={user}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        materials={materials}
+        currentMaterial={currentMaterial}
+        onSelectMaterial={handleSelectMaterial}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenSettingsModal={() => setIsSettingsModalOpen(true)}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onSignOut={handleSignOut}
+      />
 
       {/* Upload Document Modal */}
       <DocumentUploadModal
@@ -346,7 +365,7 @@ export default function App() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700/80 text-white text-xs font-medium shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-neutral-900 border border-neutral-700/80 text-white text-xs font-medium shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-150">
           <Sparkles className="w-4 h-4 text-indigo-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>

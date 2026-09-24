@@ -13,6 +13,7 @@ import {
   LogOut,
   LogIn,
   ShieldCheck,
+  Menu,
 } from 'lucide-react';
 import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
 import { isSupabaseConfigured } from '../services/supabase';
@@ -28,6 +29,7 @@ interface HeaderProps {
   user: LuminaUser | null;
   onOpenAuthModal: () => void;
   onSignOut: () => void;
+  onOpenSidebar: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -41,6 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
   user,
   onOpenAuthModal,
   onSignOut,
+  onOpenSidebar,
 }) => {
   const supabaseConnected = isSupabaseConfigured();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -68,8 +71,18 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
         {/* Desktop & Tablet Single-Row Bar (md and up) */}
         <div className="hidden md:flex items-center justify-between h-16 gap-3 lg:gap-4">
-          {/* Brand Logo & Name + Document Selector */}
-          <div className="flex items-center gap-3 lg:gap-5 shrink-0 min-w-0">
+          {/* Brand Logo & Name + Hamburger + Document Selector */}
+          <div className="flex items-center gap-2.5 lg:gap-3.5 shrink-0 min-w-0">
+            {/* Hamburger Menu Button */}
+            <button
+              onClick={onOpenSidebar}
+              aria-label="Open Navigation Menu"
+              title="Open Navigation Menu"
+              className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 hover:bg-neutral-850 transition shrink-0 shadow-sm"
+            >
+              <Menu className="w-4 h-4" />
+            </button>
+
             <div
               className="flex items-center gap-2 cursor-pointer shrink-0"
               onClick={() => setActiveTab('notes')}
@@ -319,23 +332,34 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex md:hidden flex-col py-2.5 gap-2">
           {/* Top Bar: Brand, Document Selector & Fast Actions */}
           <div className="flex items-center justify-between gap-2">
-            {/* Brand Logo */}
-            <div
-              className="flex items-center gap-1.5 cursor-pointer shrink-0"
-              onClick={() => setActiveTab('notes')}
-            >
-              <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-400 p-[1px]">
-                <div className="w-full h-full bg-neutral-950 rounded-[7px] flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Hamburger Button on Mobile */}
+              <button
+                onClick={onOpenSidebar}
+                aria-label="Open Navigation Menu"
+                className="p-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white transition"
+              >
+                <Menu className="w-4 h-4" />
+              </button>
+
+              {/* Brand Logo */}
+              <div
+                className="flex items-center gap-1.5 cursor-pointer shrink-0"
+                onClick={() => setActiveTab('notes')}
+              >
+                <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-400 p-[1px]">
+                  <div className="w-full h-full bg-neutral-950 rounded-[7px] flex items-center justify-center">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <span className="text-sm font-black tracking-wider text-white">LUMINA</span>
-                {user && (
-                  <span className="block text-[10px] text-neutral-400 -mt-0.5 truncate max-w-[85px]">
-                    Hi, {firstName}
-                  </span>
-                )}
+                <div>
+                  <span className="text-sm font-black tracking-wider text-white">LUMINA</span>
+                  {user && (
+                    <span className="block text-[10px] text-neutral-400 -mt-0.5 truncate max-w-[85px]">
+                      Hi, {firstName}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 

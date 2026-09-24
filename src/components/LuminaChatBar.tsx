@@ -3,32 +3,26 @@ import {
   Sparkles,
   Send,
   X,
-  ChevronUp,
   ChevronDown,
   RotateCcw,
   Copy,
   Check,
   Loader2,
   BookOpen,
-  HelpCircle,
-  Lightbulb,
   Maximize2,
   Minimize2,
   Bot,
   User,
+  MessageSquare,
 } from 'lucide-react';
 import { ChatMessage, StudyMaterial } from '../types/study';
 import { askLuminaChat } from '../services/gemini';
 
 interface LuminaChatBarProps {
   material: StudyMaterial | null;
-  isOpen?: boolean;
-  onToggleOpen?: () => void;
 }
 
-export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({
-  material,
-}) => {
+export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpandedFull, setIsExpandedFull] = useState(false);
   const [inputQuery, setInputQuery] = useState('');
@@ -71,12 +65,18 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({
     }
   }, [messages, isLoading, isOpen]);
 
+  // Focus input when opened
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 150);
+    }
+  }, [isOpen]);
+
   const handleSendMessage = async (queryText?: string) => {
     const textToSend = (queryText || inputQuery).trim();
     if (!textToSend || isLoading) return;
 
     setInputQuery('');
-    setIsOpen(true);
 
     const userMsg: ChatMessage = {
       id: 'msg_' + Date.now(),
@@ -102,7 +102,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({
       const errorMsg: ChatMessage = {
         id: 'reply_' + Date.now(),
         role: 'assistant',
-        content: `I ran into an issue connecting with the model. If you're studying **${material?.title || 'this topic'}**, remember that foundational principles anchor downstream effects. Feel free to rephrase or ask again!`,
+        content: `I ran into an issue connecting with the model. If you're studying **${material?.title || 'this topic'}**, foundational principles anchor downstream effects. Feel free to rephrase or ask again!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -186,7 +186,6 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({
   };
 
   const renderInlineStyles = (text: string) => {
-    // Bold replacement **text**
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
@@ -375,7 +374,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({
               <button
                 onClick={() => handleSendMessage()}
                 disabled={!inputQuery.trim() || isLoading}
-                className="p-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-neutral-800 disabled:opacity-40 text-white rounded-xl transition shadow-md shadow-indigo-600/20 active:scale-95 shrink-0"
+                className="p-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-neutral-800 disabled:opacity-40 text-white rounded-xl transition shadow-md shadow-indigo-600/25 active:scale-95 shrink-0"
               >
                 {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               </button>
@@ -384,61 +383,40 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({
         </div>
       )}
 
-      {/* Docked Persistent Conversational Chat Bar at Screen Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-neutral-950/90 backdrop-blur-xl border-t border-neutral-800/80 px-3 sm:px-6 py-2.5">
-        <div className="max-w-4xl mx-auto flex items-center gap-3">
-          {/* Left Mini Assistant Icon & Toggle Button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-300 text-xs font-semibold shrink-0 transition"
-          >
-            <div className="relative flex items-center justify-center w-5 h-5 rounded-lg bg-gradient-to-tr from-indigo-600 to-cyan-400 p-[1px]">
-              <div className="w-full h-full bg-neutral-950 rounded-[5px] flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-indigo-400" />
-              </div>
+      {/* Floating Lumina AI Tutor Chat Logo on the Right Side Below */}
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="Ask LUMINA AI Tutor"
+          className="group relative flex items-center gap-2.5 p-1.5 pr-4 rounded-full bg-neutral-900/90 hover:bg-neutral-900 border border-neutral-800 hover:border-indigo-500/50 shadow-2xl backdrop-blur-xl transition-all duration-200 active:scale-95"
+        >
+          {/* Ambient Glow */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/30 to-cyan-500/30 rounded-full blur-md opacity-75 group-hover:opacity-100 transition" />
+
+          {/* Chat Icon Badge */}
+          <div className="relative flex items-center justify-center w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-[1.5px] shadow-lg shadow-indigo-600/30">
+            <div className="w-full h-full bg-neutral-950 rounded-full flex items-center justify-center group-hover:bg-neutral-900 transition">
+              {isOpen ? (
+                <X className="w-5 h-5 text-indigo-400" />
+              ) : (
+                <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+              )}
             </div>
-            <span className="hidden sm:inline">Ask LUMINA AI</span>
-            {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-neutral-400" /> : <ChevronUp className="w-3.5 h-3.5 text-neutral-400" />}
-          </button>
-
-          {/* Primary Interactive Chat Input Field */}
-          <div className="flex-1 relative flex items-center bg-neutral-900 border border-neutral-800 rounded-xl px-3.5 py-1.5 focus-within:border-indigo-500 transition shadow-inner">
-            <input
-              type="text"
-              placeholder={
-                material
-                  ? `Ask LUMINA AI about "${material.title}" or any external question...`
-                  : 'Ask LUMINA AI any question across your study materials...'
-              }
-              value={inputQuery}
-              onChange={(e) => setInputQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onFocus={() => {
-                if (!isOpen && messages.length > 1) {
-                  setIsOpen(true);
-                }
-              }}
-              disabled={isLoading}
-              className="w-full bg-transparent text-xs text-neutral-200 placeholder-neutral-500 focus:outline-none py-1 pr-8"
-            />
-
-            <button
-              onClick={() => handleSendMessage()}
-              disabled={!inputQuery.trim() || isLoading}
-              className="absolute right-2 p-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-neutral-800 disabled:opacity-40 text-white rounded-lg transition shadow-sm active:scale-95"
-            >
-              {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-            </button>
           </div>
 
-          {/* Quick Context Pill on wide screens */}
-          {material && (
-            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900/60 border border-neutral-800/80 text-[11px] text-neutral-400 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="max-w-[150px] truncate">{material.subject}</span>
+          {/* Label */}
+          <div className="relative text-left hidden sm:block">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-neutral-100 group-hover:text-indigo-300 transition">
+                Ask LUMINA AI
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
             </div>
-          )}
-        </div>
+            <span className="text-[10px] text-neutral-400 block -mt-0.5 truncate max-w-[120px]">
+              {material ? material.subject : 'Tutor Online'}
+            </span>
+          </div>
+        </button>
       </div>
     </>
   );
