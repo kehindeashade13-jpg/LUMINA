@@ -240,11 +240,33 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     };
   }, []);
 
-  // Update YouTube Video ID on URL change
+  // Update YouTube Video ID on URL change & auto-populate video metadata via oEmbed
   useEffect(() => {
     if (youtubeUrl) {
       const vid = extractYouTubeVideoId(youtubeUrl);
       setYoutubeVideoId(vid);
+      if (vid) {
+        fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${vid}&format=json`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data?.title) {
+              const cleanTitle = data.title;
+              setTitle((prev) => (prev.trim() ? prev : cleanTitle));
+              if (!subject.trim()) {
+                const lower = cleanTitle.toLowerCase();
+                if (lower.includes('chem')) setSubject('Chemistry');
+                else if (lower.includes('phys') || lower.includes('quantum')) setSubject('Physics');
+                else if (lower.includes('bio')) setSubject('Biology');
+                else if (lower.includes('neural') || lower.includes('comput') || lower.includes('code'))
+                  setSubject('Computer Science');
+                else if (lower.includes('math') || lower.includes('calculus')) setSubject('Mathematics');
+                else if (lower.includes('history')) setSubject('History');
+                else setSubject('Academic Lecture');
+              }
+            }
+          })
+          .catch(() => {});
+      }
     } else {
       setYoutubeVideoId(null);
     }
@@ -786,8 +808,18 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           )}
         </div>
 
+        {/* Footer Error Notice (Always visible on mobile without scrolling) */}
+        {errorMessage && (
+          <div className="pt-2">
+            <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/60 text-red-200 text-xs flex items-center gap-2 shadow-lg animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+              <span className="flex-1 leading-snug">{errorMessage}</span>
+            </div>
+          </div>
+        )}
+
         {/* Modal Footer */}
-        <div className="pt-4 border-t border-[#34495E]/50 flex items-center justify-between">
+        <div className="pt-3 border-t border-[#34495E]/50 flex items-center justify-between">
           <span className="text-[11px] text-neutral-400">
             Generates 30 Flashcards, 30 Questions & 30 Quizzes
           </span>
