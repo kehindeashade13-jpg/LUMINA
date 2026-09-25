@@ -91,19 +91,29 @@ export function App() {
     }
   };
 
-  const currentMaterial = materials.find((m) => m.id === currentMaterialId) || materials[0] || null;
+  const currentMaterial = currentMaterialId
+    ? materials.find((m) => m.id === currentMaterialId) || null
+    : null;
 
   const handleSelectMaterial = (material: StudyMaterial) => {
-    setCurrentMaterialId(material.id);
-    const updated = { ...material, lastAccessedAt: new Date().toISOString() };
-    saveMaterialToDatabase(updated, user?.id);
+    // Clear out all previous notes, cards, and quizzes from memory before populating workspace
+    setCurrentMaterialId(null);
+    setTimeout(() => {
+      setCurrentMaterialId(material.id);
+      const updated = { ...material, lastAccessedAt: new Date().toISOString() };
+      saveMaterialToDatabase(updated, user?.id);
+    }, 15);
   };
 
   const handleDocumentCreated = (newMaterial: StudyMaterial) => {
+    // Clear out all previous notes, cards, and quizzes from memory before populating workspace
+    setCurrentMaterialId(null);
     setMaterials((prev) => [newMaterial, ...prev.filter((m) => m.id !== newMaterial.id)]);
-    setCurrentMaterialId(newMaterial.id);
-    setActiveTab('notes');
-    showToast(`"${newMaterial.title}" generated successfully!`);
+    setTimeout(() => {
+      setCurrentMaterialId(newMaterial.id);
+      setActiveTab('notes');
+      showToast(`"${newMaterial.title}" generated successfully!`);
+    }, 15);
   };
 
   const handleUpdateMaterial = (updated: StudyMaterial) => {
@@ -316,23 +326,26 @@ export function App() {
               />
             )}
 
-            {activeTab === 'notes' && (
+            {activeTab === 'notes' && currentMaterial && (
               <StudyGuideTab
+                key={`notes_${currentMaterial.id}`}
                 material={currentMaterial}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
               />
             )}
 
-            {activeTab === 'flashcards' && (
+            {activeTab === 'flashcards' && currentMaterial && (
               <FlashcardsTab
+                key={`flashcards_${currentMaterial.id}`}
                 material={currentMaterial}
                 onUpdateMaterial={handleUpdateMaterial}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
               />
             )}
 
-            {activeTab === 'quiz' && (
+            {activeTab === 'quiz' && currentMaterial && (
               <QuizTab
+                key={`quiz_${currentMaterial.id}`}
                 material={currentMaterial}
                 onUpdateMaterial={handleUpdateMaterial}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
@@ -343,7 +356,7 @@ export function App() {
       </main>
 
       {/* Floating Interactive Lumina AI Tutor in Bottom Right (Always Available Everywhere) */}
-      <LuminaChatBar material={currentMaterial} />
+      <LuminaChatBar key={`chat_${currentMaterial?.id || 'empty'}`} material={currentMaterial} />
 
       {/* Navigation Sidebar Drawer */}
       <SidebarDrawer
@@ -365,6 +378,7 @@ export function App() {
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         onDocumentCreated={handleDocumentCreated}
+        onClearActiveWorkspace={() => setCurrentMaterialId(null)}
         userId={user?.id}
         initialTab={uploadInitialTab}
       />

@@ -28,6 +28,7 @@ interface DocumentUploadModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDocumentCreated: (material: StudyMaterial) => void;
+  onClearActiveWorkspace?: () => void;
   userId?: string;
   initialTab?: 'document' | 'youtube' | 'audio';
 }
@@ -36,6 +37,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   isOpen,
   onClose,
   onDocumentCreated,
+  onClearActiveWorkspace,
   userId,
   initialTab = 'document',
 }) => {
@@ -78,13 +80,40 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
 
-  // Document file selection
+  // Reset modal state whenever modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+      setTitle('');
+      setSubject('');
+      setRawText('');
+      setSelectedFile(null);
+      setYoutubeUrl('');
+      setYoutubeVideoId(null);
+      setAudioFile(null);
+      setRecordedAudioBlob(null);
+      setRecordedAudioUrl(null);
+      setErrorMessage(null);
+      setLoadingStep(null);
+    } else {
+      stopRecording();
+      if (audioPreviewRef.current) {
+        audioPreviewRef.current.pause();
+      }
+    }
+  }, [isOpen, initialTab]);
+
+  // Document file selection - dynamically derive title strictly from file name
   const handleDocFileChange = async (file: File) => {
     setSelectedFile(file);
-    if (!title) {
-      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-      setTitle(nameWithoutExt.replace(/[_-]/g, ' '));
-    }
+    setRawText('');
+    setErrorMessage(null);
+
+    const cleanName = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[-_]+/g, ' ')
+      .trim();
+    setTitle(cleanName);
 
     try {
       setLoadingStep('Extracting document contents...');
@@ -111,10 +140,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setRecordedAudioBlob(null);
     setRecordedAudioUrl(URL.createObjectURL(file));
 
-    if (!title) {
-      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-      setTitle(`Lecture: ${nameWithoutExt.replace(/[_-]/g, ' ')}`);
-    }
+    const cleanName = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[-_]+/g, ' ')
+      .trim();
+    setTitle(`Lecture: ${cleanName}`);
   };
 
   // MediaRecorder Voice Note Recording
@@ -200,18 +230,6 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      setActiveTab(initialTab);
-      setErrorMessage(null);
-    } else {
-      stopRecording();
-      if (audioPreviewRef.current) {
-        audioPreviewRef.current.pause();
-      }
-    }
-  }, [isOpen, initialTab]);
-
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -238,24 +256,62 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setErrorMessage(null);
 
     try {
-      let finalContent = rawText;
-      let sourceName = selectedFile ? selectedFile.name : 'Document Notes';
+      let finalContent = '';
+      let sourceName = '';
+      let docTitle = '';
+      let docSubject = subject.trim();
 
-      // 1. YouTube import flow
+      // 1. YouTube import flow: clear active workspace state immediately
       if (activeTab === 'youtube') {
+        onClearActiveWorkspace?.();
+        setRawText('');
+        setSelectedFile(null);
+        setAudioFile(null);
+
         if (!youtubeUrl.trim() || !youtubeVideoId) {
           throw new Error('Please enter a valid YouTube video link.');
         }
+
         setIsFetchingYoutube(true);
-        setLoadingStep('Connecting to YouTube and fetching video transcript...');
+        setLoadingStep('Connecting to YouTube and extracting video transcript/captions...');
+
         const ytData = await fetchYouTubeTranscript(youtubeUrl);
+        if (!ytData.transcript || ytData.transcript.trim().length < 50) {
+          throw new Error(
+            'Unable to extract captions from this YouTube video. Please try a video with enabled subtitles/transcripts.'
+          );
+        }
+
         finalContent = ytData.transcript;
-        sourceName = `YouTube: ${ytData.title}`;
-        if (!title.trim()) setTitle(ytData.title);
+        const videoTitle = ytData.title.trim() || `YouTube Lecture (${youtubeVideoId})`;
+        setTitle(videoTitle);
+        docTitle = videoTitle;
+        sourceName = `YouTube: ${videoTitle}`;
+        if (!docSubject) docSubject = 'Video Lecture';
         setIsFetchingYoutube(false);
       }
 
-      // 2. Audio file / Recording flow
+      // 2. Document file / Paste flow
+      if (activeTab === 'document') {
+        finalContent = rawText;
+        if (!finalContent.trim()) {
+          throw new Error('No study content found. Please upload a valid document or paste text.');
+        }
+
+        if (title.trim()) {
+          docTitle = title.trim();
+        } else if (selectedFile) {
+          docTitle = selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim();
+        } else {
+          const firstLine = finalContent.split('\n')[0].replace(/[#*_-]/g, '').trim();
+          docTitle = firstLine ? firstLine.slice(0, 50).trim() : 'Document Notes';
+        }
+
+        sourceName = selectedFile ? selectedFile.name : docTitle;
+        if (!docSubject) docSubject = 'Document Studies';
+      }
+
+      // 3. Audio file / Recording flow
       if (activeTab === 'audio') {
         const audioSource = audioFile || recordedAudioBlob;
         if (!audioSource) {
@@ -265,14 +321,17 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         const transcribed = await transcribeAudio(audioSource, audioFile ? audioFile.name : 'Lecture_Voice_Note.webm');
         finalContent = transcribed.transcript;
         sourceName = audioFile ? `Audio: ${audioFile.name}` : 'Live Lecture Recording';
+        docTitle =
+          title.trim() ||
+          (audioFile
+            ? `Lecture: ${audioFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ')}`
+            : 'Live Lecture Recording');
+        if (!docSubject) docSubject = 'Lecture Audio';
       }
 
       if (!finalContent.trim()) {
         throw new Error('No study content found. Please provide text, a valid YouTube link, or audio.');
       }
-
-      const docTitle = title.trim() || (activeTab === 'youtube' ? 'YouTube Lecture Study Guide' : activeTab === 'audio' ? 'Lecture Audio Study Guide' : 'Untitled Study Guide');
-      const docSubject = subject.trim() || (activeTab === 'youtube' ? 'Video Studies' : activeTab === 'audio' ? 'Lecture Studies' : 'General Studies');
 
       // Generate 90-item comprehensive study suite
       setLoadingStep('Generating Step-by-Step Lessons, 30 Flashcards, 30 Practice Questions & 30 Quizzes...');
@@ -295,11 +354,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       onClose();
     } catch (err: unknown) {
       console.error('Study suite generation error:', err);
-      setErrorMessage(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Failed to generate study materials. Please check your network or API keys.'
-      );
+          : 'Failed to generate study materials. Please check your network or try again.';
+      setErrorMessage(msg);
     } finally {
       setIsProcessing(false);
       setLoadingStep(null);

@@ -67,6 +67,15 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
     return { options: letteredOpts, correctIdx };
   }, [flashcards]);
 
+  // Reset flashcards state when document changes
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setShowHint(false);
+    setSelectedOption(null);
+    setIsAnswered(false);
+  }, [material?.id]);
+
   const { options: currentOptions, correctIdx: currentCorrectIdx } = getCardOptions(currentCard, currentIndex);
 
   const handleNext = useCallback(() => {

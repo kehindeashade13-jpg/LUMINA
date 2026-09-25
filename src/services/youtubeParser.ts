@@ -30,26 +30,26 @@ export async function fetchYouTubeTranscript(url: string): Promise<YouTubeExtrac
       body: JSON.stringify({ url }),
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data.transcript) {
-        return {
-          videoId,
-          title: data.title || `YouTube Lecture (${videoId})`,
-          transcript: data.transcript,
-          thumbnailUrl,
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('Backend YouTube transcript call failed, falling back:', err);
-  }
+    const data = await res.json().catch(() => null);
 
-  // Fallback direct summary
-  return {
-    videoId,
-    title: `YouTube Lecture (${videoId})`,
-    transcript: `Lecture Video Analysis for YouTube Video ID: ${videoId}\n\nThis video lesson explores foundational academic concepts, operational formulas, empirical applications, and structural principles.`,
-    thumbnailUrl,
-  };
+    if (!res.ok || !data?.transcript || data.transcript.trim().length < 50) {
+      throw new Error(
+        'Unable to extract captions from this YouTube video. Please try a video with enabled subtitles/transcripts.'
+      );
+    }
+
+    return {
+      videoId,
+      title: data.title || `YouTube Lecture (${videoId})`,
+      transcript: data.transcript,
+      thumbnailUrl,
+    };
+  } catch (err: unknown) {
+    if (err instanceof Error && err.message.includes('valid YouTube video URL')) {
+      throw err;
+    }
+    throw new Error(
+      'Unable to extract captions from this YouTube video. Please try a video with enabled subtitles/transcripts.'
+    );
+  }
 }

@@ -495,15 +495,21 @@ REQUIREMENTS:
     }
     quiz = guarantee30QuizQuestions(quiz, sections, glossary, rawText, title, subject);
 
+    const cleanTitle =
+      title?.trim() ||
+      (fileName ? fileName.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() : '') ||
+      (rawText ? rawText.split('\n')[0].replace(/[#*_-]/g, '').trim().slice(0, 50) : '') ||
+      'Document Study Guide';
+
     const material: StudyMaterial = {
       id: 'mat_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36),
-      title: title || 'Untitled Study Document',
+      title: cleanTitle,
       subject: subject || 'General Studies',
       createdAt: now,
       updatedAt: now,
       fileName,
       rawText,
-      summary: parsed1.summary || `Exhaustive high-yield analysis of "${title}" in ${subject}. Synthesizes all theoretical frameworks, foundational mechanisms, subtopic relationships, and operational benchmarks.`,
+      summary: parsed1.summary || `Exhaustive high-yield analysis of "${cleanTitle}" in ${subject}. Synthesizes all theoretical frameworks, foundational mechanisms, subtopic relationships, and operational benchmarks.`,
       keyPoints: Array.isArray(parsed1.keyPoints) && parsed1.keyPoints.length > 0 ? parsed1.keyPoints : [
         `Exhaustive mastery of ${subject} mandates precise conceptual definitions before proceeding to quantitative modeling.`,
         `Direct causal mechanisms govern observable states throughout the entire curriculum.`,
@@ -995,8 +1001,12 @@ export function generateSyntheticMaterial(
   const words = rawText.trim().split(/\s+/);
   const wordCount = words.length;
 
-  const cleanTitle = title || 'General Study Module';
-  const cleanSubject = subject || 'Core Studies';
+  const cleanTitle =
+    title?.trim() ||
+    (fileName ? fileName.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ').trim() : '') ||
+    (rawText ? rawText.split('\n')[0].replace(/[#*_-]/g, '').trim().slice(0, 50) : '') ||
+    'Document Study Guide';
+  const cleanSubject = subject?.trim() || 'General Studies';
 
   const glossary = buildDefaultGlossary(rawText, cleanSubject);
   const sections = buildDefaultSections(rawText, cleanTitle, cleanSubject);

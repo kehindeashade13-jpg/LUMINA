@@ -110,25 +110,16 @@ function geminiServerPlugin(): Plugin {
               console.warn('YouTube scraping fallback:', ytErr);
             }
 
-            // If captions couldn't be extracted directly, use Gemini to synthesize video knowledge
-            if (!transcriptText || transcriptText.length < 50) {
-              const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-              if (apiKey) {
-                const ai = new GoogleGenAI({ apiKey });
-                const prompt = `Analyze this YouTube video URL: https://www.youtube.com/watch?v=${videoId} (Title: "${videoTitle}").
-Provide a comprehensive, granular academic lecture transcript and study breakdown covering the core topics, formulas, explanations, and key takeaways taught in this video lecture. Write an exhaustive 800+ word academic transcript representation.`;
-                const gRes = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
-                  contents: prompt,
-                });
-                if (gRes && gRes.text) {
-                  transcriptText = gRes.text;
-                }
-              }
-            }
-
-            if (!transcriptText) {
-              transcriptText = `Academic Lecture Notes and Transcript for: ${videoTitle}\nURL: https://www.youtube.com/watch?v=${videoId}\n\nThis video covers key principles, structural analysis, diagnostic methodology, and theoretical applications.`;
+            if (!transcriptText || transcriptText.trim().length < 50) {
+              res.statusCode = 422;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(
+                JSON.stringify({
+                  error:
+                    'Unable to extract captions from this YouTube video. Please try a video with enabled subtitles/transcripts.',
+                })
+              );
+              return;
             }
 
             res.setHeader('Content-Type', 'application/json');
@@ -141,10 +132,14 @@ Provide a comprehensive, granular academic lecture transcript and study breakdow
             );
           } catch (err: unknown) {
             console.error('YouTube transcript error:', err);
-            const msg = err instanceof Error ? err.message : 'Failed to fetch transcript';
-            res.statusCode = 500;
+            res.statusCode = 422;
             res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: msg }));
+            res.end(
+              JSON.stringify({
+                error:
+                  'Unable to extract captions from this YouTube video. Please try a video with enabled subtitles/transcripts.',
+              })
+            );
           }
         });
       });

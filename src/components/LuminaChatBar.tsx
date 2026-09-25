@@ -33,28 +33,26 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize with an intelligent welcoming message if empty
+  // Reset with an intelligent welcoming message on material change
   useEffect(() => {
-    if (messages.length === 0) {
-      if (material) {
-        setMessages([
-          {
-            id: 'welcome_msg',
-            role: 'assistant',
-            content: `Hello! I am **LUMINA AI**, your cognitive tutor for **"${material.title}"** (*${material.subject}*).\n\nI have indexed the full document text, lesson modules, flashcards, practice questions, and quizzes. You can ask me:\n• Concept explanations, step-by-step breakdowns or analogies\n• Clarifications on any tricky option or practice question\n• General knowledge and external connections to this topic\n\nHow can I support your study flow today?`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
-      } else {
-        setMessages([
-          {
-            id: 'welcome_empty',
-            role: 'assistant',
-            content: `Welcome to **LUMINA AI**! I am your interactive academic companion.\n\nAsk me any general study question, request active-recall strategies, or upload a document to unlock deep, context-aware analysis!`,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
-      }
+    if (material) {
+      setMessages([
+        {
+          id: `welcome_${material.id}_${Date.now()}`,
+          role: 'assistant',
+          content: `Hello! I am **LUMINA AI**, your cognitive tutor for **"${material.title}"** (*${material.subject}*).\n\nI have indexed the full document text, lesson modules, flashcards, practice questions, and quizzes. You can ask me:\n• Concept explanations, step-by-step breakdowns or analogies\n• Clarifications on any tricky option or practice question\n• General knowledge and external connections to this topic\n\nHow can I support your study flow today?`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } else {
+      setMessages([
+        {
+          id: `welcome_empty_${Date.now()}`,
+          role: 'assistant',
+          content: `Welcome to **LUMINA AI**! I am your interactive academic companion.\n\nAsk me any general study question, request active-recall strategies, or upload a document to unlock deep, context-aware analysis!`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
     }
   }, [material?.id]);
 
