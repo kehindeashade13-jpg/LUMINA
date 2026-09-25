@@ -47,6 +47,9 @@ export interface GlossaryTerm {
 export interface StudyMaterial {
   id: string;
   userId?: string;
+  authorName?: string;
+  authorEmail?: string;
+  isPublic?: boolean;
   title: string;
   subject: string;
   createdAt: string;
@@ -65,6 +68,7 @@ export interface StudyMaterial {
   practiceQuestions?: PracticeQuestion[];
   tags: string[];
   estimatedReadTimeMinutes?: number;
+  likesCount?: number;
 }
 
 export interface LuminaUser {

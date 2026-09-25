@@ -3,6 +3,7 @@ import { StudyMaterial, LuminaUser } from '../types/study';
 
 // Local storage keys
 const LOCAL_STORAGE_KEY = 'lumina_study_materials_cache';
+const COMMUNITY_STORAGE_KEY = 'lumina_community_study_materials';
 const CONFIG_STORAGE_KEY = 'lumina_custom_supabase_config';
 const AUTH_USER_STORAGE_KEY = 'lumina_auth_user_session';
 
@@ -243,20 +244,34 @@ export function subscribeToAuthChanges(callback: (user: LuminaUser | null) => vo
  * ============================================================================
  */
 
+/**
+ * ============================================================================
+ * User-Isolated & Public/Private Persistence Architecture (study_materials)
+ * ============================================================================
+ */
+
 export async function saveMaterialToDatabase(
   material: StudyMaterial,
-  userId?: string
+  userId?: string,
+  authorName?: string
 ): Promise<{ success: boolean; error?: string }> {
-  // Attach user ID and update timestamp
+  // Attach user ID, author name, privacy flag, and update timestamp
   const materialWithUser: StudyMaterial = {
     ...material,
     userId: userId || material.userId,
+    authorName: authorName || material.authorName || 'Scholar',
+    isPublic: material.isPublic === true,
     lastAccessedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
 
   // Always update local cache for instant offline responsiveness
   updateLocalCache(materialWithUser, userId);
+  if (materialWithUser.isPublic) {
+    updateCommunityCache(materialWithUser);
+  } else {
+    removeFromCommunityCache(materialWithUser.id);
+  }
 
   const supabase = getSupabaseClient();
   if (!supabase) {
@@ -267,23 +282,28 @@ export async function saveMaterialToDatabase(
   }
 
   try {
-    // Attempt insert with user_id column
-    const payloadWithUserCol: Record<string, any> = {
+    // Attempt insert with user_id and is_public columns
+    const payloadWithCols: Record<string, any> = {
       id: materialWithUser.id,
       title: materialWithUser.title,
       subject: materialWithUser.subject,
+      is_public: materialWithUser.isPublic === true,
       full_data: materialWithUser,
     };
 
     if (userId) {
-      payloadWithUserCol.user_id = userId;
+      payloadWithCols.user_id = userId;
     }
 
-    const { error: upsertErr } = await supabase.from('study_materials').upsert(payloadWithUserCol);
+    const { error: upsertErr } = await supabase.from('study_materials').upsert(payloadWithCols);
 
     if (upsertErr) {
-      // If error indicates column user_id doesn't exist yet, retry without user_id column
-      if (upsertErr.message.includes('user_id') || upsertErr.code === '42703') {
+      // If error indicates column does not exist, retry with simpler columns while full_data maintains isPublic
+      if (
+        upsertErr.message.includes('user_id') ||
+        upsertErr.message.includes('is_public') ||
+        upsertErr.code === '42703'
+      ) {
         const { error: fallbackErr } = await supabase.from('study_materials').upsert({
           id: materialWithUser.id,
           title: materialWithUser.title,
@@ -310,73 +330,157 @@ export async function saveMaterialToDatabase(
 }
 
 /**
+ * Toggle a document's privacy status (Public vs Private)
+ */
+export async function toggleMaterialPrivacy(
+  material: StudyMaterial,
+  isPublic: boolean,
+  userId?: string
+): Promise<StudyMaterial> {
+  const updated: StudyMaterial = {
+    ...material,
+    isPublic,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await saveMaterialToDatabase(updated, userId);
+  return updated;
+}
+
+/**
+ * Clone a public community material into user's private library
+ */
+export async function cloneCommunityMaterial(
+  communityMat: StudyMaterial,
+  currentUserId: string,
+  currentUserName?: string
+): Promise<StudyMaterial> {
+  const newId = 'mat_user_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
+  const cloned: StudyMaterial = {
+    ...communityMat,
+    id: newId,
+    userId: currentUserId,
+    authorName: currentUserName || 'Scholar',
+    isPublic: false, // Cloned copies default to Private in user's library
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastAccessedAt: new Date().toISOString(),
+  };
+
+  await saveMaterialToDatabase(cloned, currentUserId);
+  return cloned;
+}
+
+export interface FullStudyDataResult {
+  materials: StudyMaterial[]; // Personal library
+  personalMaterials: StudyMaterial[];
+  communityMaterials: StudyMaterial[];
+  fromSupabase: boolean;
+  error?: string;
+}
+
+/**
  * Loading:
- * Retrieve materials filtered for the authenticated user so each user only views their own files.
+ * Retrieve personal materials strictly for authenticated user, and public materials for community library.
  */
 export async function fetchFullStudyDataFromSupabase(
   userId?: string
-): Promise<{ materials: StudyMaterial[]; fromSupabase: boolean; error?: string }> {
+): Promise<FullStudyDataResult> {
   const supabase = getSupabaseClient();
 
   if (!supabase) {
-    const cached = getLocalCache(userId);
-    return { materials: cached, fromSupabase: false };
+    const cachedPersonal = getLocalCache(userId);
+    const cachedCommunity = getCommunityCache();
+    return {
+      materials: cachedPersonal,
+      personalMaterials: cachedPersonal,
+      communityMaterials: cachedCommunity,
+      fromSupabase: false,
+    };
   }
 
   try {
-    let query = supabase.from('study_materials').select('*');
+    let personalList: StudyMaterial[] = [];
+    let communityList: StudyMaterial[] = [];
 
-    // If userId provided, try filtering by user_id column
+    // 1. Fetch personal materials strictly for auth user
     if (userId) {
-      query = query.eq('user_id', userId);
-    }
+      try {
+        const { data: pData, error: pErr } = await supabase
+          .from('study_materials')
+          .select('*')
+          .eq('user_id', userId);
 
-    const { data, error } = await query;
-
-    if (error) {
-      // If column user_id does not exist, fetch all and filter client-side by full_data.userId
-      if (error.message.includes('user_id') || error.code === '42703') {
-        const { data: allData, error: allErr } = await supabase.from('study_materials').select('*');
-        if (!allErr && Array.isArray(allData)) {
-          const userOnly = allData
+        if (!pErr && Array.isArray(pData)) {
+          personalList = pData
             .map((item: { full_data: StudyMaterial }) => item.full_data)
-            .filter((m: StudyMaterial) => m && (!userId || m.userId === userId));
-
-          if (userOnly.length > 0) {
-            syncLocalCache(userOnly, userId);
-          }
-          return { materials: userOnly, fromSupabase: true };
+            .filter((m: StudyMaterial) => m && m.userId === userId);
         }
+      } catch (err) {
+        console.warn('Personal query fallback:', err);
       }
-
-      console.warn('Supabase fetch error, using local cache:', error);
-      const cached = getLocalCache(userId);
-      return { materials: cached, fromSupabase: false, error: error.message };
     }
 
-    if (data && Array.isArray(data)) {
-      const rehydrated = data
-        .map((item: { full_data: StudyMaterial }) => item.full_data)
-        .filter(Boolean) as StudyMaterial[];
+    // 2. Fetch public community materials (is_public = true)
+    try {
+      const { data: cData, error: cErr } = await supabase
+        .from('study_materials')
+        .select('*')
+        .eq('is_public', true);
 
-      // Filter by user if returned row didn't filter
-      const userFiltered = userId
-        ? rehydrated.filter((m) => !m.userId || m.userId === userId)
-        : rehydrated;
-
-      if (userFiltered.length > 0) {
-        syncLocalCache(userFiltered, userId);
+      if (!cErr && Array.isArray(cData)) {
+        communityList = cData
+          .map((item: { full_data: StudyMaterial }) => item.full_data)
+          .filter((m: StudyMaterial) => m && m.isPublic === true);
       }
-
-      return { materials: userFiltered, fromSupabase: true };
+    } catch (err) {
+      console.warn('Community query fallback:', err);
     }
 
-    return { materials: [], fromSupabase: true };
+    // Fallback client-side filter if specific column queries fail
+    if (personalList.length === 0 && userId) {
+      const { data: allData } = await supabase.from('study_materials').select('*');
+      if (Array.isArray(allData)) {
+        const allRehydrated = allData
+          .map((item: { full_data: StudyMaterial }) => item.full_data)
+          .filter(Boolean) as StudyMaterial[];
+
+        personalList = allRehydrated.filter((m) => m.userId === userId);
+        communityList = allRehydrated.filter((m) => m.isPublic === true);
+      }
+    }
+
+    // Sync to local caches
+    if (personalList.length > 0 && userId) {
+      syncLocalCache(personalList, userId);
+    } else if (userId) {
+      personalList = getLocalCache(userId);
+    }
+
+    if (communityList.length > 0) {
+      syncCommunityCache(communityList);
+    } else {
+      communityList = getCommunityCache();
+    }
+
+    return {
+      materials: personalList,
+      personalMaterials: personalList,
+      communityMaterials: communityList,
+      fromSupabase: true,
+    };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Database fetch failed';
     console.warn('Supabase fetch exception:', err);
-    const cached = getLocalCache(userId);
-    return { materials: cached, fromSupabase: false, error: msg };
+    const cachedPersonal = getLocalCache(userId);
+    const cachedCommunity = getCommunityCache();
+    return {
+      materials: cachedPersonal,
+      personalMaterials: cachedPersonal,
+      communityMaterials: cachedCommunity,
+      fromSupabase: false,
+      error: msg,
+    };
   }
 }
 
@@ -384,6 +488,7 @@ export async function deleteMaterialFromDatabase(id: string, userId?: string): P
   // Update local cache first
   const current = getLocalCache(userId).filter((m) => m.id !== id);
   syncLocalCache(current, userId);
+  removeFromCommunityCache(id);
 
   const supabase = getSupabaseClient();
   if (supabase) {
@@ -420,7 +525,7 @@ export function getLocalCache(userId?: string): StudyMaterial[] {
     const parsed = JSON.parse(data);
     if (!Array.isArray(parsed)) return [];
 
-    // Filter out any legacy mock materials
+    // Filter out legacy items and ensure strictly matches requested user
     const cleaned = parsed.filter(
       (m: StudyMaterial) =>
         m &&
@@ -428,7 +533,7 @@ export function getLocalCache(userId?: string): StudyMaterial[] {
         m.id !== 'mat_quantum_computing_qubits' &&
         !m.title?.includes('Neurobiology') &&
         !m.title?.includes('Quantum Computing') &&
-        (!userId || !m.userId || m.userId === userId)
+        (!userId || m.userId === userId)
     );
 
     if (cleaned.length !== parsed.length) {
@@ -455,10 +560,59 @@ export function updateLocalCache(material: StudyMaterial, userId?: string): void
   }
 }
 
+// Community library cache helpers
+function syncCommunityCache(materials: StudyMaterial[]): void {
+  try {
+    localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(materials));
+  } catch (e) {
+    console.warn('Community cache write failed:', e);
+  }
+}
+
+export function getCommunityCache(): StudyMaterial[] {
+  try {
+    const data = localStorage.getItem(COMMUNITY_STORAGE_KEY);
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((m: StudyMaterial) => m && m.isPublic === true);
+      }
+    }
+  } catch {
+    // Ignore error
+  }
+  return [];
+}
+
+export function updateCommunityCache(material: StudyMaterial): void {
+  try {
+    const current = getCommunityCache();
+    const idx = current.findIndex((m) => m.id === material.id);
+    if (idx >= 0) {
+      current[idx] = material;
+    } else {
+      current.unshift(material);
+    }
+    syncCommunityCache(current);
+  } catch (e) {
+    console.warn('Failed to update community cache:', e);
+  }
+}
+
+export function removeFromCommunityCache(id: string): void {
+  try {
+    const current = getCommunityCache().filter((m) => m.id !== id);
+    syncCommunityCache(current);
+  } catch (e) {
+    console.warn('Failed to remove from community cache:', e);
+  }
+}
+
 export const SUPABASE_SQL_SETUP = `-- Run this in your Supabase SQL Editor:
 CREATE TABLE IF NOT EXISTS study_materials (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid(),
+  is_public BOOLEAN DEFAULT FALSE NOT NULL,
   title TEXT NOT NULL,
   subject TEXT,
   full_data JSONB NOT NULL,
@@ -466,14 +620,47 @@ CREATE TABLE IF NOT EXISTS study_materials (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Row Level Security (RLS) for complete multi-user isolation
+-- Ensure is_public and user_id columns exist on legacy tables:
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'study_materials' AND column_name = 'is_public') THEN
+    ALTER TABLE study_materials ADD COLUMN is_public BOOLEAN DEFAULT FALSE NOT NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'study_materials' AND column_name = 'user_id') THEN
+    ALTER TABLE study_materials ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE DEFAULT auth.uid();
+  END IF;
+END $$;
+
+-- Enable Row Level Security (RLS) for strict multi-user privacy & public sharing
 ALTER TABLE study_materials ENABLE ROW LEVEL SECURITY;
 
--- Policy: Users can only view, insert, update, and delete their own study materials
-CREATE POLICY "Users can only access their own study materials"
+-- 1. SELECT Policy: Users can view their own private study materials OR any public community materials
+DROP POLICY IF EXISTS "Public and personal materials viewable" ON study_materials;
+CREATE POLICY "Public and personal materials viewable"
   ON study_materials
-  FOR ALL
+  FOR SELECT
+  USING (auth.uid() = user_id OR is_public = true);
+
+-- 2. INSERT Policy: Users can only create materials for their own account
+DROP POLICY IF EXISTS "Users can create own materials" ON study_materials;
+CREATE POLICY "Users can create own materials"
+  ON study_materials
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- 3. UPDATE Policy: Users can only update/toggle privacy on their own materials
+DROP POLICY IF EXISTS "Users can update own materials" ON study_materials;
+CREATE POLICY "Users can update own materials"
+  ON study_materials
+  FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- 4. DELETE Policy: Users can only delete their own materials
+DROP POLICY IF EXISTS "Users can delete own materials" ON study_materials;
+CREATE POLICY "Users can delete own materials"
+  ON study_materials
+  FOR DELETE
+  USING (auth.uid() = user_id);
 `;
 

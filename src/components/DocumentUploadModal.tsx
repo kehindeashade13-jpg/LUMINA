@@ -16,6 +16,9 @@ import {
   RotateCcw,
   Music,
   ExternalLink,
+  Globe,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import { StudyMaterial } from '../types/study';
 import { extractTextFromFile } from '../services/pdfParser';
@@ -30,6 +33,7 @@ interface DocumentUploadModalProps {
   onDocumentCreated: (material: StudyMaterial) => void;
   onClearActiveWorkspace?: () => void;
   userId?: string;
+  userFullName?: string;
   initialTab?: 'document' | 'youtube' | 'audio';
 }
 
@@ -39,15 +43,17 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   onDocumentCreated,
   onClearActiveWorkspace,
   userId,
+  userFullName,
   initialTab = 'document',
 }) => {
   const [activeTab, setActiveTab] = useState<'document' | 'youtube' | 'audio'>(initialTab);
   const [docInputMode, setDocInputMode] = useState<'upload' | 'paste'>('upload');
 
-  // Metadata
+  // Metadata & Privacy
   const [title, setTitle] = useState('');
   const [subject, setSubject] = useState('');
   const [rawText, setRawText] = useState('');
+  const [isPublic, setIsPublic] = useState(false); // Defaults to Private
 
   // Document states
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -87,6 +93,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       setTitle('');
       setSubject('');
       setRawText('');
+      setIsPublic(false); // Default to Private
       setSelectedFile(null);
       setYoutubeUrl('');
       setYoutubeVideoId(null);
@@ -364,12 +371,14 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         sourceName
       );
 
+      material.isPublic = isPublic;
+      material.authorName = userFullName || 'Scholar';
       if (userId) {
         material.userId = userId;
       }
 
       setLoadingStep('Persisting study suite to workspace...');
-      await saveMaterialToDatabase(material, userId);
+      await saveMaterialToDatabase(material, userId, userFullName);
 
       setLoadingStep('Complete!');
       onDocumentCreated(material);
@@ -507,6 +516,59 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 className="w-full px-3.5 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
               />
             </div>
+          </div>
+
+          {/* Privacy & Sharing Toggle: Make Public / Share with Community */}
+          <div className="p-3.5 rounded-2xl bg-neutral-950 border border-[#34495E]/60 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-xl border transition ${
+                  isPublic
+                    ? 'bg-[#2ECC71]/15 text-[#2ECC71] border-[#2ECC71]/30'
+                    : 'bg-neutral-850 text-neutral-400 border-[#34495E]/60'
+                }`}
+              >
+                {isPublic ? <Globe className="w-4 h-4 text-[#2ECC71]" /> : <Lock className="w-4 h-4 text-neutral-400" />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-neutral-100">
+                    Make Public / Share with Community
+                  </span>
+                  <span
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition ${
+                      isPublic
+                        ? 'bg-[#2ECC71]/15 text-[#2ECC71] border-[#2ECC71]/30'
+                        : 'bg-neutral-800 text-neutral-300 border-[#34495E]/60'
+                    }`}
+                  >
+                    {isPublic ? 'Public' : 'Private (Default)'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">
+                  {isPublic
+                    ? 'Published to the Community Library so other scholars can study these notes.'
+                    : 'Strictly private to your account. Only you can view, study, and access this document.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle Switch Button */}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublic}
+              onClick={() => setIsPublic(!isPublic)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                isPublic ? 'bg-[#2ECC71]' : 'bg-neutral-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                  isPublic ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           {/* TAB 1: DOCUMENT / TEXT */}
