@@ -35,6 +35,7 @@ interface DocumentUploadModalProps {
   userId?: string;
   userFullName?: string;
   initialTab?: 'document' | 'youtube' | 'audio';
+  onErrorToast?: (msg: string) => void;
 }
 
 export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
@@ -45,6 +46,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   userId,
   userFullName,
   initialTab = 'document',
+  onErrorToast,
 }) => {
   const [activeTab, setActiveTab] = useState<'document' | 'youtube' | 'audio'>(initialTab);
   const [docInputMode, setDocInputMode] = useState<'upload' | 'paste'>('upload');
@@ -378,7 +380,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       }
 
       setLoadingStep('Persisting study suite to workspace...');
-      await saveMaterialToDatabase(material, userId, userFullName);
+      const saveRes = await saveMaterialToDatabase(material, userId, userFullName);
+
+      if (!saveRes.success && saveRes.error) {
+        onErrorToast?.(`Supabase Error: ${saveRes.error}`);
+        throw new Error(saveRes.error);
+      }
 
       setLoadingStep('Complete!');
       onDocumentCreated(material);

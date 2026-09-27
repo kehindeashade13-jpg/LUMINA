@@ -473,6 +473,7 @@ export function App() {
         userId={user?.id}
         userFullName={user?.fullName}
         initialTab={uploadInitialTab}
+        onErrorToast={(errMsg) => showToast(errMsg)}
       />
 
       {/* Auth Modal (Sign In / Sign Up) */}

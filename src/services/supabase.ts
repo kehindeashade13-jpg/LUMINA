@@ -256,11 +256,12 @@ export async function saveMaterialToDatabase(
   authorName?: string
 ): Promise<{ success: boolean; error?: string }> {
   // Attach user ID, author name, privacy flag, and update timestamp
+  const isPublicBool = Boolean(material.isPublic);
   const materialWithUser: StudyMaterial = {
     ...material,
     userId: userId || material.userId,
     authorName: authorName || material.authorName || 'Scholar',
-    isPublic: Boolean(material.isPublic),
+    isPublic: isPublicBool,
     lastAccessedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -287,8 +288,9 @@ export async function saveMaterialToDatabase(
       id: materialWithUser.id,
       title: materialWithUser.title,
       subject: materialWithUser.subject,
-      is_public: Boolean(materialWithUser.isPublic),
+      is_public: isPublicBool,
       full_data: materialWithUser,
+      created_at: materialWithUser.createdAt || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
@@ -393,7 +395,19 @@ export async function fetchPersonalMaterials(userId: string): Promise<StudyMater
       const fallbackData = await supabase.from('study_materials').select('*');
       if (!fallbackData.error && Array.isArray(fallbackData.data)) {
         const filtered = fallbackData.data
-          .map((item: { full_data: StudyMaterial }) => item.full_data)
+          .map((item: any) => {
+            const doc = item.full_data || {};
+            return {
+              ...doc,
+              id: item.id || doc.id,
+              title: item.title || doc.title,
+              subject: item.subject || doc.subject,
+              userId: item.user_id || doc.userId || userId,
+              isPublic: item.is_public !== undefined ? Boolean(item.is_public) : Boolean(doc.isPublic),
+              createdAt: item.created_at || doc.createdAt,
+              updatedAt: item.updated_at || doc.updatedAt,
+            };
+          })
           .filter((m: StudyMaterial) => m && m.userId === userId);
         if (filtered.length > 0) syncLocalCache(filtered, userId);
         return filtered.length > 0 ? filtered : getLocalCache(userId);
@@ -403,7 +417,19 @@ export async function fetchPersonalMaterials(userId: string): Promise<StudyMater
 
     if (Array.isArray(data)) {
       const personalList = data
-        .map((item: { full_data: StudyMaterial }) => item.full_data)
+        .map((item: any) => {
+          const doc = item.full_data || {};
+          return {
+            ...doc,
+            id: item.id || doc.id,
+            title: item.title || doc.title,
+            subject: item.subject || doc.subject,
+            userId: item.user_id || doc.userId || userId,
+            isPublic: item.is_public !== undefined ? Boolean(item.is_public) : Boolean(doc.isPublic),
+            createdAt: item.created_at || doc.createdAt,
+            updatedAt: item.updated_at || doc.updatedAt,
+          };
+        })
         .filter((m: StudyMaterial) => m && m.userId === userId);
 
       if (personalList.length > 0) {
@@ -439,7 +465,20 @@ export async function fetchCommunityMaterials(): Promise<StudyMaterial[]> {
       const fallbackData = await supabase.from('study_materials').select('*');
       if (!fallbackData.error && Array.isArray(fallbackData.data)) {
         const filtered = fallbackData.data
-          .map((item: { full_data: StudyMaterial }) => item.full_data)
+          .map((item: any) => {
+            const doc = item.full_data || {};
+            return {
+              ...doc,
+              id: item.id || doc.id,
+              title: item.title || doc.title,
+              subject: item.subject || doc.subject,
+              userId: item.user_id || doc.userId,
+              isPublic: item.is_public !== undefined ? Boolean(item.is_public) : Boolean(doc.isPublic),
+              createdAt: item.created_at || doc.createdAt,
+              updatedAt: item.updated_at || doc.updatedAt,
+              authorName: doc.authorName || 'Scholar',
+            };
+          })
           .filter((m: StudyMaterial) => m && m.isPublic === true);
         if (filtered.length > 0) syncCommunityCache(filtered);
         return filtered.length > 0 ? filtered : getCommunityCache();
@@ -449,7 +488,20 @@ export async function fetchCommunityMaterials(): Promise<StudyMaterial[]> {
 
     if (Array.isArray(data)) {
       const communityList = data
-        .map((item: { full_data: StudyMaterial }) => item.full_data)
+        .map((item: any) => {
+          const doc = item.full_data || {};
+          return {
+            ...doc,
+            id: item.id || doc.id,
+            title: item.title || doc.title,
+            subject: item.subject || doc.subject,
+            userId: item.user_id || doc.userId,
+            isPublic: item.is_public !== undefined ? Boolean(item.is_public) : Boolean(doc.isPublic),
+            createdAt: item.created_at || doc.createdAt,
+            updatedAt: item.updated_at || doc.updatedAt,
+            authorName: doc.authorName || 'Scholar',
+          };
+        })
         .filter((m: StudyMaterial) => m && m.isPublic === true);
 
       if (communityList.length > 0) {
