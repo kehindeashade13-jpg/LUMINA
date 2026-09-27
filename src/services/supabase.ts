@@ -283,7 +283,7 @@ export async function saveMaterialToDatabase(
   }
 
   try {
-    // Attempt insert/upsert with user_id and is_public columns
+    // Attempt insert/upsert with user_id, is_public, and created_at columns
     const payloadWithCols: Record<string, any> = {
       id: materialWithUser.id,
       title: materialWithUser.title,
@@ -291,7 +291,6 @@ export async function saveMaterialToDatabase(
       is_public: isPublicBool,
       full_data: materialWithUser,
       created_at: materialWithUser.createdAt || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
     if (userId) {
@@ -388,7 +387,7 @@ export async function fetchPersonalMaterials(userId: string): Promise<StudyMater
       .from('study_materials')
       .select('*')
       .eq('user_id', userId)
-      .order('updated_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.warn('Supabase fetchPersonalMaterials query error, falling back:', error);
