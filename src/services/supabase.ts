@@ -260,7 +260,7 @@ export async function saveMaterialToDatabase(
     ...material,
     userId: userId || material.userId,
     authorName: authorName || material.authorName || 'Scholar',
-    isPublic: material.isPublic === true,
+    isPublic: Boolean(material.isPublic),
     lastAccessedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -282,13 +282,14 @@ export async function saveMaterialToDatabase(
   }
 
   try {
-    // Attempt insert with user_id and is_public columns
+    // Attempt insert/upsert with user_id and is_public columns
     const payloadWithCols: Record<string, any> = {
       id: materialWithUser.id,
       title: materialWithUser.title,
       subject: materialWithUser.subject,
-      is_public: materialWithUser.isPublic === true,
+      is_public: Boolean(materialWithUser.isPublic),
       full_data: materialWithUser,
+      updated_at: new Date().toISOString(),
     };
 
     if (userId) {
@@ -339,7 +340,7 @@ export async function toggleMaterialPrivacy(
 ): Promise<StudyMaterial> {
   const updated: StudyMaterial = {
     ...material,
-    isPublic,
+    isPublic: Boolean(isPublic),
     updatedAt: new Date().toISOString(),
   };
 
@@ -371,6 +372,98 @@ export async function cloneCommunityMaterial(
   return cloned;
 }
 
+/**
+ * My Library Tab: Fetch records using .from('study_materials').select('*').eq('user_id', userId)
+ */
+export async function fetchPersonalMaterials(userId: string): Promise<StudyMaterial[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) {
+    return getLocalCache(userId);
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('study_materials')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase fetchPersonalMaterials query error, falling back:', error);
+      const fallbackData = await supabase.from('study_materials').select('*');
+      if (!fallbackData.error && Array.isArray(fallbackData.data)) {
+        const filtered = fallbackData.data
+          .map((item: { full_data: StudyMaterial }) => item.full_data)
+          .filter((m: StudyMaterial) => m && m.userId === userId);
+        if (filtered.length > 0) syncLocalCache(filtered, userId);
+        return filtered.length > 0 ? filtered : getLocalCache(userId);
+      }
+      return getLocalCache(userId);
+    }
+
+    if (Array.isArray(data)) {
+      const personalList = data
+        .map((item: { full_data: StudyMaterial }) => item.full_data)
+        .filter((m: StudyMaterial) => m && m.userId === userId);
+
+      if (personalList.length > 0) {
+        syncLocalCache(personalList, userId);
+      }
+      return personalList;
+    }
+  } catch (err) {
+    console.warn('Error fetching personal materials from Supabase:', err);
+  }
+
+  return getLocalCache(userId);
+}
+
+/**
+ * Community Library Tab: Fetch records using .from('study_materials').select('*').eq('is_public', true).order('created_at', { ascending: false })
+ */
+export async function fetchCommunityMaterials(): Promise<StudyMaterial[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return getCommunityCache();
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('study_materials')
+      .select('*')
+      .eq('is_public', true)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase fetchCommunityMaterials query error, falling back:', error);
+      const fallbackData = await supabase.from('study_materials').select('*');
+      if (!fallbackData.error && Array.isArray(fallbackData.data)) {
+        const filtered = fallbackData.data
+          .map((item: { full_data: StudyMaterial }) => item.full_data)
+          .filter((m: StudyMaterial) => m && m.isPublic === true);
+        if (filtered.length > 0) syncCommunityCache(filtered);
+        return filtered.length > 0 ? filtered : getCommunityCache();
+      }
+      return getCommunityCache();
+    }
+
+    if (Array.isArray(data)) {
+      const communityList = data
+        .map((item: { full_data: StudyMaterial }) => item.full_data)
+        .filter((m: StudyMaterial) => m && m.isPublic === true);
+
+      if (communityList.length > 0) {
+        syncCommunityCache(communityList);
+      }
+      return communityList;
+    }
+  } catch (err) {
+    console.warn('Error fetching community materials from Supabase:', err);
+  }
+
+  return getCommunityCache();
+}
+
 export interface FullStudyDataResult {
   materials: StudyMaterial[]; // Personal library
   personalMaterials: StudyMaterial[];
@@ -400,68 +493,10 @@ export async function fetchFullStudyDataFromSupabase(
   }
 
   try {
-    let personalList: StudyMaterial[] = [];
-    let communityList: StudyMaterial[] = [];
-
-    // 1. Fetch personal materials strictly for auth user
-    if (userId) {
-      try {
-        const { data: pData, error: pErr } = await supabase
-          .from('study_materials')
-          .select('*')
-          .eq('user_id', userId);
-
-        if (!pErr && Array.isArray(pData)) {
-          personalList = pData
-            .map((item: { full_data: StudyMaterial }) => item.full_data)
-            .filter((m: StudyMaterial) => m && m.userId === userId);
-        }
-      } catch (err) {
-        console.warn('Personal query fallback:', err);
-      }
-    }
-
-    // 2. Fetch public community materials (is_public = true)
-    try {
-      const { data: cData, error: cErr } = await supabase
-        .from('study_materials')
-        .select('*')
-        .eq('is_public', true);
-
-      if (!cErr && Array.isArray(cData)) {
-        communityList = cData
-          .map((item: { full_data: StudyMaterial }) => item.full_data)
-          .filter((m: StudyMaterial) => m && m.isPublic === true);
-      }
-    } catch (err) {
-      console.warn('Community query fallback:', err);
-    }
-
-    // Fallback client-side filter if specific column queries fail
-    if (personalList.length === 0 && userId) {
-      const { data: allData } = await supabase.from('study_materials').select('*');
-      if (Array.isArray(allData)) {
-        const allRehydrated = allData
-          .map((item: { full_data: StudyMaterial }) => item.full_data)
-          .filter(Boolean) as StudyMaterial[];
-
-        personalList = allRehydrated.filter((m) => m.userId === userId);
-        communityList = allRehydrated.filter((m) => m.isPublic === true);
-      }
-    }
-
-    // Sync to local caches
-    if (personalList.length > 0 && userId) {
-      syncLocalCache(personalList, userId);
-    } else if (userId) {
-      personalList = getLocalCache(userId);
-    }
-
-    if (communityList.length > 0) {
-      syncCommunityCache(communityList);
-    } else {
-      communityList = getCommunityCache();
-    }
+    const [personalList, communityList] = await Promise.all([
+      userId ? fetchPersonalMaterials(userId) : Promise.resolve([]),
+      fetchCommunityMaterials(),
+    ]);
 
     return {
       materials: personalList,
