@@ -112,11 +112,45 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
-  // Document file selection - dynamically derive title strictly from file name
+  // Supported document extensions for client-side JavaScript validation
+  const ALLOWED_DOC_EXTENSIONS = ['pdf', 'docx', 'pptx', 'doc', 'ppt', 'txt', 'md', 'json', 'csv', 'rtf'];
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+  // Document file selection with client-side validation for iOS / web
   const handleDocFileChange = async (file: File) => {
+    setErrorMessage(null);
+
+    // 1. Client-side file size validation (max 50MB)
+    if (file.size > MAX_FILE_SIZE) {
+      setErrorMessage('File size exceeds 50MB limit. Please upload a smaller document.');
+      setSelectedFile(null);
+      return;
+    }
+
+    // 2. Client-side document format validation (PDF, PPTX, DOCX, TXT, MD, etc.)
+    const extension = file.name.split('.').pop()?.toLowerCase() || '';
+    const isDocMime =
+      file.type.includes('pdf') ||
+      file.type.includes('word') ||
+      file.type.includes('presentation') ||
+      file.type.includes('powerpoint') ||
+      file.type.includes('text') ||
+      file.type.includes('document') ||
+      file.type.includes('officedocument') ||
+      file.type === ''; // iOS Files app often leaves file.type empty
+
+    const isDocExtension = ALLOWED_DOC_EXTENSIONS.includes(extension);
+
+    if (!isDocExtension && !isDocMime) {
+      setErrorMessage(
+        `Unsupported document format (${extension ? `.${extension}` : 'unknown'}). Please choose a PDF, PPTX, DOCX, or text/markdown file.`
+      );
+      setSelectedFile(null);
+      return;
+    }
+
     setSelectedFile(file);
     setRawText('');
-    setErrorMessage(null);
 
     const cleanName = file.name
       .replace(/\.[^/.]+$/, '')
@@ -591,7 +625,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       : 'text-neutral-400 hover:text-neutral-200'
                   }`}
                 >
-                  Upload File (.pdf, .txt, .md)
+                  Upload File (.pdf, .pptx, .docx, .txt)
                 </button>
                 <button
                   type="button"
@@ -611,8 +645,13 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                   <input
                     type="file"
                     ref={fileInputRef}
-                    onChange={(e) => e.target.files?.[0] && handleDocFileChange(e.target.files[0])}
-                    accept=".pdf,.txt,.md,.json,.csv"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        handleDocFileChange(e.target.files[0]);
+                      }
+                      e.target.value = '';
+                    }}
+                    accept=".pdf,.pptx,.docx,.doc,.ppt,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/vnd.ms-powerpoint,text/plain,text/markdown"
                     className="hidden"
                   />
                   <div
@@ -647,10 +686,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       ) : (
                         <div>
                           <p className="text-xs font-semibold text-neutral-200">
-                            Drop your PDF or document here, or <span className="text-[#a569bd] underline">browse</span>
+                            Drop your PDF, PPTX, DOCX, or document here, or <span className="text-[#a569bd] underline">browse</span>
                           </p>
                           <p className="text-[11px] text-neutral-400 mt-1">
-                            Supports PDFs, plain text (.txt), Markdown (.md)
+                            Supports PDFs, PowerPoint (.pptx), Word (.docx), Markdown (.md), and plain text (.txt)
                           </p>
                         </div>
                       )}
