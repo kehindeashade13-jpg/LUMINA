@@ -63,6 +63,15 @@
       }
     }
     </script>
+    <!-- PWA Install Prompt Early Capture -->
+    <script>
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredPWAInstallPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
+      });
+    </script>
+
     <!-- Dynamic Canonical URL Resolution -->
     <script>
       try {

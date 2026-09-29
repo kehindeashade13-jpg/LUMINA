@@ -108,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center cursor-pointer shrink-0"
               onClick={() => setActiveTab('notes')}
             >
-              <LuminaLogo size={48} />
+              <LuminaLogo size={48} showText={false} />
             </div>
 
             {/* Document Selector Dropdown */}
@@ -369,7 +369,7 @@ export const Header: React.FC<HeaderProps> = ({
                 className="flex items-center cursor-pointer shrink-0"
                 onClick={() => setActiveTab('notes')}
               >
-                <LuminaLogo size={36} />
+                <LuminaLogo size={36} showText={false} />
               </div>
             </div>
 
