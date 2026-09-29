@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
 import LuminaLogo from './LuminaLogo';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   activeTab: ActiveTab;
@@ -280,6 +281,9 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
+            {/* PWA Install Button (Chrome, Opera, Safari, Edge, Mobile) */}
+            <PWAInstallButton variant="header" />
+
             {/* Upload Document Primary CTA (Deep Violet #8E44AD) */}
             <button
               onClick={onOpenUploadModal}
@@ -402,6 +406,9 @@ export const Header: React.FC<HeaderProps> = ({
                   <Search className="w-3.5 h-3.5" />
                 </button>
               )}
+
+              {/* PWA Install Button Mobile */}
+              <PWAInstallButton variant="header" className="px-2 py-1 text-[11px]" />
 
               {/* Upload Button */}
               <button

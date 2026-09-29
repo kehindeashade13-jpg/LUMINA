@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+
+export const LUMINA_LOGO_IMAGE_URL = 'https://github.com/user-attachments/assets/1f33835a-232c-4266-b95a-86bd81450cb7';
 
 interface LuminaLogoProps {
   size?: number;
@@ -13,40 +15,54 @@ export default function LuminaLogo({
   className = '',
   textColor,
 }: LuminaLogoProps) {
+  const [imageError, setImageError] = useState(false);
+
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <svg
-        width={size}
-        height={size}
-        viewBox="0 0 100 100"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="shrink-0 transition-transform duration-200 hover:scale-105"
-      >
-        {/* Outer Compass Ring */}
-        <circle cx="50" cy="50" r="38" stroke="#34495E" strokeWidth="6" />
-
-        {/* Compass Points */}
-        <polygon points="50,6 54,16 46,16" fill="#34495E" />
-        <polygon points="50,94 54,84 46,84" fill="#34495E" />
-        <polygon points="6,50 16,46 16,54" fill="#34495E" />
-        <polygon points="94,50 84,46 84,54" fill="#34495E" />
-
-        {/* Central L Lettermark */}
-        <path
-          d="M 38 32 V 68 H 62"
-          stroke="#8E44AD"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+      {!imageError ? (
+        <img
+          src={LUMINA_LOGO_IMAGE_URL}
+          alt="Lumina Logo"
+          width={size}
+          height={size}
+          style={{ width: `${size}px`, height: `${size}px` }}
+          className="shrink-0 object-contain rounded-xl transition-transform duration-200 hover:scale-105"
+          onError={() => setImageError(true)}
         />
+      ) : (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 100 100"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="shrink-0 transition-transform duration-200 hover:scale-105"
+        >
+          {/* Outer Compass Ring */}
+          <circle cx="50" cy="50" r="38" stroke="#34495E" strokeWidth="6" />
 
-        {/* Lumina Spark Star */}
-        <polygon
-          points="58,32 60,38 66,40 60,42 58,48 56,42 50,40 56,38"
-          fill="#F1C40F"
-        />
-      </svg>
+          {/* Compass Points */}
+          <polygon points="50,6 54,16 46,16" fill="#34495E" />
+          <polygon points="50,94 54,84 46,84" fill="#34495E" />
+          <polygon points="6,50 16,46 16,54" fill="#34495E" />
+          <polygon points="94,50 84,46 84,54" fill="#34495E" />
+
+          {/* Central L Lettermark */}
+          <path
+            d="M 38 32 V 68 H 62"
+            stroke="#8E44AD"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Lumina Spark Star */}
+          <polygon
+            points="58,32 60,38 66,40 60,42 58,48 56,42 50,40 56,38"
+            fill="#F1C40F"
+          />
+        </svg>
+      )}
       {showText && (
         <span
           className={`font-bold tracking-tight ${textColor || 'text-white'}`}

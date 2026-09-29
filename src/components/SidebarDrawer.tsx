@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
 import LuminaLogo from './LuminaLogo';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface SidebarDrawerProps {
   isOpen: boolean;
@@ -135,6 +136,9 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
               </div>
             )}
           </div>
+
+          {/* PWA Mobile / Web App Install Button */}
+          <PWAInstallButton variant="sidebar" />
 
           {/* Navigation Links */}
           <div className="space-y-1">

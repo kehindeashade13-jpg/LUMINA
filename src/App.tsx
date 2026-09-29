@@ -25,6 +25,8 @@ import { AuthModal } from './components/AuthModal';
 import { RecentDocumentsSection } from './components/RecentDocumentsSection';
 import { SidebarDrawer } from './components/SidebarDrawer';
 import LuminaLogo from './components/LuminaLogo';
+import { WatermarkBackground } from './components/WatermarkBackground';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { ActiveTab, StudyMaterial, LuminaUser } from './types/study';
 import {
   fetchFullStudyDataFromSupabase,
@@ -207,7 +209,10 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0b0f14] text-neutral-100 flex flex-col antialiased selection:bg-[#8E44AD]/30 selection:text-[#a569bd]">
+    <div className="min-h-screen bg-[#0b0f14] text-neutral-100 flex flex-col antialiased selection:bg-[#8E44AD]/30 selection:text-[#a569bd] relative">
+      {/* Background Watermark embedded across all pages */}
+      <WatermarkBackground />
+
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -223,7 +228,7 @@ export function App() {
       />
 
       {/* Main Workspace Viewport */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 sm:pb-20">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-16 sm:pb-20 relative z-10">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-neutral-400">
             <Loader2 className="w-8 h-8 animate-spin text-[#8E44AD]" />
@@ -445,6 +450,9 @@ export function App() {
           </>
         )}
       </main>
+
+      {/* Offline Mode Status Banner */}
+      <OfflineIndicator />
 
       {/* Floating Interactive Lumina AI Tutor in Bottom Right (Always Available for Authenticated Users) */}
       <LuminaChatBar key={`chat_${currentMaterial?.id || 'empty'}`} material={currentMaterial} />

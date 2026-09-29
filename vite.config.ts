@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, Plugin} from 'vite';
 import {GoogleGenAI} from '@google/genai';
+import { VitePWA } from 'vite-plugin-pwa';
 
 function geminiServerPlugin(): Plugin {
   return {
@@ -308,7 +309,91 @@ Generate a comprehensive, exhaustive academic lecture transcript (over 800 words
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), geminiServerPlugin()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['favicon.png', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'manifest.json'],
+        manifest: {
+          id: '/',
+          name: 'LUMINA - AI Study Platform',
+          short_name: 'LUMINA',
+          description: 'High-performance AI study platform for documents, flashcards, study guides, and quizzes with Supabase persistence.',
+          theme_color: '#8E44AD',
+          background_color: '#0b0f14',
+          display: 'standalone',
+          orientation: 'portrait-primary',
+          start_url: '/',
+          scope: '/',
+          categories: ['education', 'productivity', 'utilities'],
+          icons: [
+            {
+              src: '/pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'any',
+            },
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any',
+            },
+            {
+              src: '/pwa-maskable-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+            {
+              src: '/apple-touch-icon.png',
+              sizes: '180x180',
+              type: 'image/png',
+              purpose: 'any',
+            },
+          ],
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'gstatic-fonts-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+                cacheableResponse: {
+                  statuses: [0, 200],
+                },
+              },
+            },
+          ],
+        },
+        devOptions: {
+          enabled: true,
+          type: 'module',
+        },
+      }),
+      geminiServerPlugin(),
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
