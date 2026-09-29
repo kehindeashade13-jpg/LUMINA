@@ -7,6 +7,7 @@ import {
   StudyNoteSection,
   ChatMessage,
 } from '../types/study';
+import { appStorage } from './storage';
 
 const CUSTOM_GEMINI_KEY = 'lumina_custom_gemini_key';
 
@@ -16,7 +17,7 @@ export function getGeminiApiKey(): string {
     return envKey.trim();
   }
   try {
-    const saved = localStorage.getItem(CUSTOM_GEMINI_KEY);
+    const saved = appStorage.getSync(CUSTOM_GEMINI_KEY);
     if (saved) return saved.trim();
   } catch (e) {
     console.error('Failed to read custom gemini key', e);
@@ -25,7 +26,7 @@ export function getGeminiApiKey(): string {
 }
 
 export function saveCustomGeminiKey(key: string): void {
-  localStorage.setItem(CUSTOM_GEMINI_KEY, key.trim());
+  appStorage.setSync(CUSTOM_GEMINI_KEY, key.trim());
 }
 
 export function hasGeminiKey(): boolean {

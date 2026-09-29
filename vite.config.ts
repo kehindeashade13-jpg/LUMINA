@@ -394,6 +394,15 @@ export default defineConfig(() => {
       }),
       geminiServerPlugin(),
     ],
+    base: './',
+    build: {
+      rollupOptions: {
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+          popup: path.resolve(__dirname, 'popup.html'),
+        },
+      },
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

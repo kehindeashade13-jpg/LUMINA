@@ -55,3 +55,24 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(142, 68, 173, 0.8);
 }
+
+/* Chrome Extension Popup Mode */
+html.chrome-extension-popup,
+body.chrome-extension-popup,
+.chrome-extension-popup body {
+  width: 480px !important;
+  min-width: 400px !important;
+  max-width: 560px !important;
+  height: 600px !important;
+  max-height: 600px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.chrome-extension-popup #root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 600px;
+  overflow-x: hidden;
+}
+

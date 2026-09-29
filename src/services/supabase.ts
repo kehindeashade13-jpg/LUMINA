@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { StudyMaterial, LuminaUser } from '../types/study';
+import { appStorage } from './storage';
 
 // Local storage keys
 const LOCAL_STORAGE_KEY = 'lumina_study_materials_cache';
@@ -21,9 +22,9 @@ export function getSupabaseCredentials(): SupabaseConfig {
     return { url: envUrl.trim(), anonKey: envKey.trim() };
   }
 
-  // Check localStorage for manually entered keys if env vars were not populated
+  // Check storage for manually entered keys if env vars were not populated
   try {
-    const saved = localStorage.getItem(CONFIG_STORAGE_KEY);
+    const saved = appStorage.getSync(CONFIG_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.url && parsed.anonKey) {
@@ -38,7 +39,7 @@ export function getSupabaseCredentials(): SupabaseConfig {
 }
 
 export function saveCustomSupabaseCredentials(url: string, anonKey: string): void {
-  localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify({ url, anonKey }));
+  appStorage.setSync(CONFIG_STORAGE_KEY, JSON.stringify({ url, anonKey }));
   clientInstance = null; // reset cached client
 }
 
@@ -100,7 +101,7 @@ export async function getCurrentUser(): Promise<LuminaUser | null> {
       const { data } = await supabase.auth.getUser();
       if (data?.user) {
         const user = formatLuminaUser(data.user);
-        localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+        appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
         return user;
       }
     } catch (e) {
@@ -110,7 +111,7 @@ export async function getCurrentUser(): Promise<LuminaUser | null> {
 
   // Fallback to local stored session if offline or demo
   try {
-    const saved = localStorage.getItem(AUTH_USER_STORAGE_KEY);
+    const saved = appStorage.getSync(AUTH_USER_STORAGE_KEY);
     return saved ? JSON.parse(saved) : null;
   } catch {
     return null;
@@ -146,7 +147,7 @@ export async function signUpWithEmail(
       if (data?.user) {
         const user = formatLuminaUser(data.user);
         user.fullName = cleanName; // Ensure name is preserved immediately
-        localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+        appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
         return { user };
       }
     } catch (err: unknown) {
@@ -161,7 +162,7 @@ export async function signUpWithEmail(
     email: cleanEmail,
     fullName: cleanName,
   };
-  localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
+  appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
   return { user: localUser };
 }
 
@@ -185,7 +186,7 @@ export async function signInWithEmail(
 
       if (data?.user) {
         const user = formatLuminaUser(data.user);
-        localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+        appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
         return { user };
       }
     } catch (err: unknown) {
@@ -200,7 +201,7 @@ export async function signInWithEmail(
     email: cleanEmail,
     fullName: cleanEmail.split('@')[0] || 'Student',
   };
-  localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
+  appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
   return { user: localUser };
 }
 
@@ -213,7 +214,7 @@ export async function signOutUser(): Promise<void> {
       console.warn('Sign out error:', e);
     }
   }
-  localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  appStorage.removeSync(AUTH_USER_STORAGE_KEY);
 }
 
 export function subscribeToAuthChanges(callback: (user: LuminaUser | null) => void): () => void {
@@ -225,10 +226,10 @@ export function subscribeToAuthChanges(callback: (user: LuminaUser | null) => vo
   const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
     if (session?.user) {
       const user = formatLuminaUser(session.user);
-      localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+      appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
       callback(user);
     } else {
-      localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+      appStorage.removeSync(AUTH_USER_STORAGE_KEY);
       callback(null);
     }
   });
@@ -598,7 +599,7 @@ function getCacheKey(userId?: string): string {
 
 function syncLocalCache(materials: StudyMaterial[], userId?: string): void {
   try {
-    localStorage.setItem(getCacheKey(userId), JSON.stringify(materials));
+    appStorage.setSync(getCacheKey(userId), JSON.stringify(materials));
   } catch (e) {
     console.warn('Cache write failed:', e);
   }
@@ -606,7 +607,7 @@ function syncLocalCache(materials: StudyMaterial[], userId?: string): void {
 
 export function getLocalCache(userId?: string): StudyMaterial[] {
   try {
-    const data = localStorage.getItem(getCacheKey(userId));
+    const data = appStorage.getSync(getCacheKey(userId));
     if (!data) return [];
     const parsed = JSON.parse(data);
     if (!Array.isArray(parsed)) return [];
@@ -649,7 +650,7 @@ export function updateLocalCache(material: StudyMaterial, userId?: string): void
 // Community library cache helpers
 function syncCommunityCache(materials: StudyMaterial[]): void {
   try {
-    localStorage.setItem(COMMUNITY_STORAGE_KEY, JSON.stringify(materials));
+    appStorage.setSync(COMMUNITY_STORAGE_KEY, JSON.stringify(materials));
   } catch (e) {
     console.warn('Community cache write failed:', e);
   }
@@ -657,7 +658,7 @@ function syncCommunityCache(materials: StudyMaterial[]): void {
 
 export function getCommunityCache(): StudyMaterial[] {
   try {
-    const data = localStorage.getItem(COMMUNITY_STORAGE_KEY);
+    const data = appStorage.getSync(COMMUNITY_STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed) && parsed.length > 0) {

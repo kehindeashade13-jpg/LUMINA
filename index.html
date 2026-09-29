@@ -30,27 +30,27 @@
     <meta name="twitter:image:alt" content="LUMINA Official Brand Logo" />
 
     <!-- PWA & Mobile Web App Manifest & Meta Tags (Chrome, Opera, Safari, iOS, Android) -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" href="./manifest.webmanifest" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="LUMINA" />
-    <meta name="application-name" content="LUMINA" />
+    <meta name="apple-mobile-web-app-title" content="Lumina" />
+    <meta name="application-name" content="Lumina" />
 
     <!-- Link Rel Icons and Fallback Social Previews -->
     <link rel="image_src" href="https://github.com/user-attachments/assets/1f33835a-232c-4266-b95a-86bd81450cb7" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
-    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="./pwa-192x192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="./pwa-512x512.png" />
+    <link rel="icon" type="image/png" href="./favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
 
     <!-- Schema.org JSON-LD Structured Data for Rich Search Engine Results -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      "name": "LUMINA",
-      "headline": "LUMINA - AI Study Platform",
+      "name": "Lumina",
+      "headline": "Lumina - AI Study Suite",
       "applicationCategory": "EducationalApplication",
       "operatingSystem": "All",
       "description": "High-performance AI study platform for documents, flashcards, study guides, and quizzes with Supabase persistence.",
@@ -63,42 +63,13 @@
       }
     }
     </script>
-    <!-- PWA Install Prompt Early Capture -->
-    <script>
-      window.addEventListener('beforeinstallprompt', function(e) {
-        e.preventDefault();
-        window.deferredPWAInstallPrompt = e;
-        window.dispatchEvent(new CustomEvent('pwa-prompt-ready'));
-      });
-    </script>
-
-    <!-- Dynamic Canonical URL Resolution -->
-    <script>
-      try {
-        const canonicalUrl = window.location.origin + window.location.pathname;
-        let link = document.querySelector("link[rel='canonical']");
-        if (!link) {
-          link = document.createElement('link');
-          link.setAttribute('rel', 'canonical');
-          document.head.appendChild(link);
-        }
-        link.setAttribute('href', canonicalUrl);
-        let ogUrl = document.querySelector("meta[property='og:url']");
-        if (!ogUrl) {
-          ogUrl = document.createElement('meta');
-          ogUrl.setAttribute('property', 'og:url');
-          document.head.appendChild(ogUrl);
-        }
-        ogUrl.setAttribute('content', canonicalUrl);
-      } catch (e) {}
-    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   </head>
   <body class="bg-neutral-950 text-neutral-100 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="./src/main.tsx"></script>
   </body>
 </html>
 
