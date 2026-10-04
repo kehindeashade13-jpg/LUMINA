@@ -80,44 +80,40 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
         <button
           type="button"
           onClick={handleOpenModal}
-          title="Install LUMINA as Web App (Chrome, Opera, Safari, Android, iOS)"
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-[#8E44AD]/30 to-[#F1C40F]/20 hover:from-[#8E44AD]/45 hover:to-[#F1C40F]/35 border border-[#8E44AD]/50 hover:border-[#F1C40F]/60 text-xs font-semibold text-neutral-100 hover:text-white transition shadow-sm group active:scale-95 shrink-0 ${className}`}
+          title="Install Lumina as Web App"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#161922] hover:bg-[#1E222D] border border-[#262B36] hover:border-[#7C3AED] text-xs font-semibold text-[#F9FAFB] transition shrink-0 ${className}`}
         >
-          <Download className="w-3.5 h-3.5 text-[#F1C40F] group-hover:scale-110 transition-transform" />
-          <span className="hidden sm:inline">Install App</span>
-          <span className="inline sm:hidden">Install</span>
+          <Download className="w-3.5 h-3.5 text-[#06B6D4]" />
+          <span>Install App</span>
         </button>
       ) : variant === 'sidebar' ? (
         <button
           type="button"
           onClick={handleOpenModal}
-          className={`w-full flex items-center justify-between p-3 rounded-2xl bg-gradient-to-r from-neutral-900 to-[#8E44AD]/20 border border-[#8E44AD]/40 hover:border-[#8E44AD] text-left transition group active:scale-98 ${className}`}
+          className={`w-full flex items-center justify-between p-3 rounded-xl bg-[#0D0F12] hover:bg-[#1E222D] border border-[#262B36] hover:border-[#7C3AED] text-left transition group ${className}`}
         >
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#8E44AD]/30 border border-[#8E44AD]/50 text-[#F1C40F] group-hover:scale-105 transition-transform">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-lg bg-[#161922] border border-[#262B36] text-[#06B6D4] shrink-0">
               <Smartphone className="w-4 h-4" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-neutral-100 group-hover:text-white flex items-center gap-1.5">
-                Install as Mobile / Web App
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#F1C40F]/20 text-[#F1C40F] font-semibold border border-[#F1C40F]/40">
-                  PWA
-                </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[#F9FAFB] truncate">
+                Install App (PWA)
               </p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">
-                Chrome, Safari, Opera &amp; Home Screen
+              <p className="text-[11px] text-[#9CA3AF] truncate">
+                Add to phone or desktop
               </p>
             </div>
           </div>
-          <ArrowRight className="w-4 h-4 text-neutral-400 group-hover:text-[#F1C40F] group-hover:translate-x-1 transition" />
+          <ArrowRight className="w-4 h-4 text-[#9CA3AF] group-hover:text-[#F9FAFB] group-hover:translate-x-0.5 transition shrink-0" />
         </button>
       ) : (
         <button
           type="button"
           onClick={handleOpenModal}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#8E44AD] hover:bg-[#9b59b6] text-white text-xs font-semibold shadow-md shadow-[#8E44AD]/30 transition ${className}`}
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] text-xs font-semibold shadow-sm transition ${className}`}
         >
-          <Download className="w-4 h-4 text-[#F1C40F]" />
+          <Download className="w-4 h-4 text-[#06B6D4]" />
           <span>Install Web App</span>
         </button>
       )}

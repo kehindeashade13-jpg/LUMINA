@@ -1,26 +1,51 @@
 @import "tailwindcss";
 
 @theme {
-  --color-violet-brand: #8e44ad;
-  --color-violet-hover: #7d3c98;
-  --color-violet-light: #a569bd;
-  --color-amber-brand: #f1c40f;
-  --color-amber-hover: #d4ac0d;
-  --color-amber-light: #f7dc6f;
-  --color-charcoal-brand: #34495e;
-  --color-charcoal-dark: #2c3e50;
-  --color-charcoal-light: #415b76;
-  --color-green-brand: #2ecc71;
-  --color-green-hover: #27ae60;
-  --color-green-light: #58d68d;
+  /* Core 60-30-10 High-Contrast Dark Mode Palette */
+  --color-app-bg: #0D0F12;
+  --color-card-bg: #161922;
+  --color-card-hover: #1C202B;
+  --color-card-border: #262B36;
+
+  /* Primary Accent (10%) - Vibrant Violet */
+  --color-violet-brand: #7C3AED;
+  --color-violet-hover: #6D28D9;
+  --color-violet-light: #A78BFA;
+
+  /* Metrics & Semantic Accents - Cool Cyan & Mint */
+  --color-cyan-brand: #06B6D4;
+  --color-cyan-light: #22D3EE;
+  --color-mint-brand: #10B981;
+  --color-mint-hover: #059669;
+  --color-mint-light: #34D399;
+
+  /* Legacy alias mappings updated to high-contrast palette */
+  --color-amber-brand: #06B6D4;
+  --color-amber-hover: #0891B2;
+  --color-amber-light: #22D3EE;
+  --color-charcoal-brand: #262B36;
+  --color-charcoal-dark: #161922;
+  --color-charcoal-light: #323846;
+  --color-green-brand: #10B981;
+  --color-green-hover: #059669;
+  --color-green-light: #34D399;
+
+  /* Typography Tokens */
+  --color-text-primary: #F9FAFB;
+  --color-text-secondary: #9CA3AF;
 }
 
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-    background-color: #0b0f14;
-    color: #e2e8f0;
+    background-color: #0D0F12;
+    color: #F9FAFB;
+    letter-spacing: 0.01em;
   }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 .perspective-1000 {
@@ -40,20 +65,20 @@
   transform: rotateY(180deg);
 }
 
-/* Custom Logo 4 theme scrollbar */
+/* High-contrast scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(44, 62, 80, 0.4);
+  background: #0D0F12;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(142, 68, 173, 0.4);
+  background: #262B36;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(142, 68, 173, 0.8);
+  background: #7C3AED;
 }
 
 /* Chrome Extension Popup Mode */
@@ -67,6 +92,7 @@ body.chrome-extension-popup,
   max-height: 600px !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
+  background-color: #0D0F12 !important;
 }
 
 .chrome-extension-popup #root {
@@ -75,4 +101,3 @@ body.chrome-extension-popup,
   min-height: 600px;
   overflow-x: hidden;
 }
-
