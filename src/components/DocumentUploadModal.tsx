@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Upload,
-  FileText,
   Sparkles,
   Loader2,
   CheckCircle2,
@@ -18,7 +17,6 @@ import {
   ExternalLink,
   Globe,
   Lock,
-  ShieldCheck,
 } from 'lucide-react';
 import { StudyMaterial } from '../types/study';
 import { extractTextFromFile } from '../services/pdfParser';
@@ -120,14 +118,12 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const handleDocFileChange = async (file: File) => {
     setErrorMessage(null);
 
-    // 1. Client-side file size validation (max 50MB)
     if (file.size > MAX_FILE_SIZE) {
       setErrorMessage('File size exceeds 50MB limit. Please upload a smaller document.');
       setSelectedFile(null);
       return;
     }
 
-    // 2. Client-side document format validation (PDF, PPTX, DOCX, TXT, MD, etc.)
     const extension = file.name.split('.').pop()?.toLowerCase() || '';
     const isDocMime =
       file.type.includes('pdf') ||
@@ -137,7 +133,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       file.type.includes('text') ||
       file.type.includes('document') ||
       file.type.includes('officedocument') ||
-      file.type === ''; // iOS Files app often leaves file.type empty
+      file.type === '';
 
     const isDocExtension = ALLOWED_DOC_EXTENSIONS.includes(extension);
 
@@ -399,7 +395,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       }
 
       // Generate 90-item comprehensive study suite
-      setLoadingStep('Generating Step-by-Step Lessons, 30 Flashcards, 30 Practice Questions & 30 Quizzes...');
+      setLoadingStep('Generating Step-by-Step Lessons, 30 Flashcards, 30 Notes & 30 Quizzes...');
       const material = await generateFullStudySuite(
         finalContent,
         docTitle,
@@ -441,78 +437,81 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150">
-      <div className="relative w-full max-w-2xl bg-neutral-900 border border-[#34495E]/80 rounded-3xl shadow-2xl p-6 sm:p-7 overflow-hidden max-h-[92vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="relative w-full max-w-2xl bg-[#161922] border border-[#262B36] rounded-2xl shadow-2xl p-5 sm:p-6 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#34495E]/50">
+        <div className="flex items-center justify-between pb-4 border-b border-[#262B36]">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30 shadow-md">
-              <Sparkles className="w-5 h-5 text-[#F1C40F]" />
+            <div className="p-2 rounded-xl bg-[#0D0F12] text-[#7C3AED] border border-[#262B36]">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-neutral-100">Upload Study Materials</h3>
-              <p className="text-xs text-neutral-400">
-                PDFs, YouTube Lectures, & Audio Voice Notes synthesized into 90 study items
+              <h3 className="text-lg font-bold text-[#F9FAFB]">Upload Study Materials</h3>
+              <p className="text-xs text-[#9CA3AF]">
+                PDFs, YouTube Lectures, & Audio Voice Notes synthesized into a full study suite
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             disabled={isProcessing}
-            className="text-neutral-400 hover:text-neutral-200 p-1.5 rounded-lg hover:bg-neutral-800 transition disabled:opacity-50"
+            className="text-[#9CA3AF] hover:text-[#F9FAFB] p-1.5 rounded-lg hover:bg-[#0D0F12] transition disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* 3 Main Import Channels */}
-        <div className="grid grid-cols-3 gap-2 mt-4 p-1.5 bg-neutral-950 rounded-2xl border border-[#34495E]/60 text-xs font-semibold">
+        {/* Source Tab Bar: Clean 3-column grid (grid grid-cols-3 gap-2) with uniform padding (py-2 px-3) and centered icons/labels */}
+        <div className="grid grid-cols-3 gap-2 mt-4 p-1.5 bg-[#0D0F12] rounded-xl border border-[#262B36] text-xs font-semibold">
           {/* 1. Document */}
           <button
+            type="button"
             onClick={() => {
               setActiveTab('document');
               setErrorMessage(null);
             }}
-            className={`py-2.5 rounded-xl flex items-center justify-center gap-2 transition ${
+            className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-center transition whitespace-nowrap ${
               activeTab === 'document'
-                ? 'bg-[#8E44AD] text-white shadow-md shadow-[#8E44AD]/30'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
+                ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                : 'text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#161922]'
             }`}
           >
-            <FileUp className="w-4 h-4" />
-            <span>Document (PDF/Text)</span>
+            <FileUp className="w-4 h-4 shrink-0" />
+            <span>Document</span>
           </button>
 
           {/* 2. YouTube Link */}
           <button
+            type="button"
             onClick={() => {
               setActiveTab('youtube');
               setErrorMessage(null);
             }}
-            className={`py-2.5 rounded-xl flex items-center justify-center gap-2 transition ${
+            className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-center transition whitespace-nowrap ${
               activeTab === 'youtube'
-                ? 'bg-[#8E44AD] text-white shadow-md shadow-[#8E44AD]/30'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
+                ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                : 'text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#161922]'
             }`}
           >
-            <Youtube className="w-4 h-4 text-red-400" />
+            <Youtube className="w-4 h-4 text-red-400 shrink-0" />
             <span>YouTube Link</span>
           </button>
 
-          {/* 3. Audio / Record Lecture */}
+          {/* 3. Audio */}
           <button
+            type="button"
             onClick={() => {
               setActiveTab('audio');
               setErrorMessage(null);
             }}
-            className={`py-2.5 rounded-xl flex items-center justify-center gap-2 transition ${
+            className={`py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-center transition whitespace-nowrap ${
               activeTab === 'audio'
-                ? 'bg-[#8E44AD] text-white shadow-md shadow-[#8E44AD]/30'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-900'
+                ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                : 'text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#161922]'
             }`}
           >
-            <Mic className="w-4 h-4 text-[#F1C40F]" />
-            <span>Audio / Record</span>
+            <Mic className="w-4 h-4 text-[#06B6D4] shrink-0" />
+            <span>Audio</span>
           </button>
         </div>
 
@@ -528,7 +527,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           {/* Common Metadata Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-[#F9FAFB] mb-1">
                 Study Guide Title
               </label>
               <input
@@ -542,11 +541,11 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 }
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
+                className="w-full px-3.5 py-2.5 bg-[#0D0F12] border border-[#262B36] rounded-xl text-[#F9FAFB] placeholder-[#9CA3AF] text-xs focus:outline-none focus:border-[#7C3AED] transition"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-300 mb-1">
+              <label className="block text-xs font-medium text-[#F9FAFB] mb-1">
                 Subject / Discipline
               </label>
               <input
@@ -554,42 +553,46 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 placeholder="e.g. Biology, Physics, Law, History, Computer Science"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
+                className="w-full px-3.5 py-2.5 bg-[#0D0F12] border border-[#262B36] rounded-xl text-[#F9FAFB] placeholder-[#9CA3AF] text-xs focus:outline-none focus:border-[#7C3AED] transition"
               />
             </div>
           </div>
 
-          {/* Privacy & Sharing Toggle: Make Public / Share with Community */}
-          <div className="p-3.5 rounded-2xl bg-neutral-950 border border-[#34495E]/60 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          {/* Dynamic Privacy & Sharing Toggle */}
+          <div className="p-3.5 rounded-xl bg-[#0D0F12] border border-[#262B36] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div
-                className={`p-2 rounded-xl border transition ${
+                className={`p-2 rounded-xl border transition shrink-0 ${
                   isPublic
-                    ? 'bg-[#2ECC71]/15 text-[#2ECC71] border-[#2ECC71]/30'
-                    : 'bg-neutral-850 text-neutral-400 border-[#34495E]/60'
+                    ? 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30'
+                    : 'bg-[#161922] text-[#9CA3AF] border-[#262B36]'
                 }`}
               >
-                {isPublic ? <Globe className="w-4 h-4 text-[#2ECC71]" /> : <Lock className="w-4 h-4 text-neutral-400" />}
+                {isPublic ? (
+                  <Globe className="w-4 h-4 text-[#10B981]" />
+                ) : (
+                  <Lock className="w-4 h-4 text-[#9CA3AF]" />
+                )}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-neutral-100">
-                    Make Public / Share with Community
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-[#F9FAFB]">
+                    {isPublic ? 'Share with Community' : 'Private Document'}
                   </span>
                   <span
-                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border transition ${
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border transition ${
                       isPublic
-                        ? 'bg-[#2ECC71]/15 text-[#2ECC71] border-[#2ECC71]/30'
-                        : 'bg-neutral-800 text-neutral-300 border-[#34495E]/60'
+                        ? 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30'
+                        : 'bg-[#161922] text-[#9CA3AF] border-[#262B36]'
                     }`}
                   >
                     {isPublic ? 'Public' : 'Private (Default)'}
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-400 mt-0.5 leading-relaxed">
+                <p className="text-[11px] text-[#9CA3AF] mt-0.5 leading-relaxed">
                   {isPublic
-                    ? 'Published to the Community Library so other scholars can study these notes.'
-                    : 'Strictly private to your account. Only you can view, study, and access this document.'}
+                    ? 'Visible to all Lumina users in the shared document library.'
+                    : 'Strictly private to your account. Only you can view and access this file.'}
                 </p>
               </div>
             </div>
@@ -599,9 +602,10 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               type="button"
               role="switch"
               aria-checked={isPublic}
+              aria-label={isPublic ? 'Share with Community' : 'Private Document'}
               onClick={() => setIsPublic(!isPublic)}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isPublic ? 'bg-[#2ECC71]' : 'bg-neutral-700'
+                isPublic ? 'bg-[#10B981]' : 'bg-[#262B36]'
               }`}
             >
               <span
@@ -615,14 +619,14 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           {/* TAB 1: DOCUMENT / TEXT */}
           {activeTab === 'document' && (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 p-1 bg-neutral-950 rounded-xl border border-[#34495E]/60 text-xs font-medium w-fit">
+              <div className="flex items-center gap-2 p-1 bg-[#0D0F12] rounded-xl border border-[#262B36] text-xs font-medium w-fit">
                 <button
                   type="button"
                   onClick={() => setDocInputMode('upload')}
                   className={`px-3 py-1.5 rounded-lg transition ${
                     docInputMode === 'upload'
-                      ? 'bg-neutral-800 text-white font-semibold'
-                      : 'text-neutral-400 hover:text-neutral-200'
+                      ? 'bg-[#7C3AED] text-[#F9FAFB] font-semibold'
+                      : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
                   }`}
                 >
                   Upload File (.pdf, .pptx, .docx, .txt)
@@ -632,8 +636,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                   onClick={() => setDocInputMode('paste')}
                   className={`px-3 py-1.5 rounded-lg transition ${
                     docInputMode === 'paste'
-                      ? 'bg-neutral-800 text-white font-semibold'
-                      : 'text-neutral-400 hover:text-neutral-200'
+                      ? 'bg-[#7C3AED] text-[#F9FAFB] font-semibold'
+                      : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
                   }`}
                 >
                   Paste Text Notes
@@ -662,33 +666,33 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     onDragLeave={() => setIsDragging(false)}
                     onDrop={handleDocDrop}
                     onClick={() => fileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition ${
+                    className={`border-2 border-dashed rounded-xl p-7 text-center cursor-pointer transition ${
                       isDragging
-                        ? 'border-[#8E44AD] bg-[#8E44AD]/10'
+                        ? 'border-[#7C3AED] bg-[#7C3AED]/10'
                         : selectedFile
-                        ? 'border-[#2ECC71]/60 bg-[#2ECC71]/10'
-                        : 'border-[#34495E]/70 hover:border-[#8E44AD] bg-neutral-950/50'
+                        ? 'border-[#10B981]/60 bg-[#10B981]/10'
+                        : 'border-[#262B36] hover:border-[#7C3AED] bg-[#0D0F12]'
                     }`}
                   >
                     <div className="flex flex-col items-center justify-center gap-2.5">
-                      <div className="p-3 rounded-2xl bg-neutral-900 border border-[#34495E]/80 text-[#8E44AD] shadow-md">
+                      <div className="p-3 rounded-xl bg-[#161922] border border-[#262B36] text-[#7C3AED]">
                         <Upload className="w-6 h-6" />
                       </div>
                       {selectedFile ? (
                         <div>
-                          <p className="text-xs font-semibold text-[#2ECC71] flex items-center justify-center gap-1.5">
+                          <p className="text-xs font-semibold text-[#10B981] flex items-center justify-center gap-1.5">
                             <CheckCircle2 className="w-4 h-4" /> {selectedFile.name}
                           </p>
-                          <p className="text-[11px] text-neutral-400 mt-1">
+                          <p className="text-[11px] text-[#9CA3AF] mt-1 font-mono tabular-nums">
                             {(selectedFile.size / 1024).toFixed(1)} KB • Click to change file
                           </p>
                         </div>
                       ) : (
                         <div>
-                          <p className="text-xs font-semibold text-neutral-200">
-                            Drop your PDF, PPTX, DOCX, or document here, or <span className="text-[#a569bd] underline">browse</span>
+                          <p className="text-xs font-semibold text-[#F9FAFB]">
+                            Drop your PDF, PPTX, DOCX, or document here, or <span className="text-[#A78BFA] underline">browse</span>
                           </p>
-                          <p className="text-[11px] text-neutral-400 mt-1">
+                          <p className="text-[11px] text-[#9CA3AF] mt-1">
                             Supports PDFs, PowerPoint (.pptx), Word (.docx), Markdown (.md), and plain text (.txt)
                           </p>
                         </div>
@@ -703,7 +707,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     placeholder="Paste textbook excerpts, lecture slides transcript, article content, or research notes here..."
                     value={rawText}
                     onChange={(e) => setRawText(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
+                    className="w-full px-3.5 py-2.5 bg-[#0D0F12] border border-[#262B36] rounded-xl text-[#F9FAFB] placeholder-[#9CA3AF] text-xs focus:outline-none focus:border-[#7C3AED] transition"
                   />
                 </div>
               )}
@@ -714,7 +718,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           {activeTab === 'youtube' && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-neutral-300 mb-1.5">
+                <label className="block text-xs font-medium text-[#F9FAFB] mb-1.5">
                   Paste YouTube Video URL
                 </label>
                 <div className="relative flex items-center">
@@ -724,34 +728,33 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
                     value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-neutral-950 border border-[#34495E]/60 rounded-xl text-neutral-200 text-xs focus:outline-none focus:border-[#8E44AD] transition"
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#0D0F12] border border-[#262B36] rounded-xl text-[#F9FAFB] placeholder-[#9CA3AF] text-xs focus:outline-none focus:border-[#7C3AED] transition"
                   />
                 </div>
-                <p className="text-[11px] text-neutral-400 mt-1.5 flex items-center gap-1">
-                  <span>LUMINA automatically fetches the lecture transcript and extracts all 90 study items.</span>
+                <p className="text-[11px] text-[#9CA3AF] mt-1.5">
+                  Lumina automatically fetches the lecture transcript and extracts the full study suite.
                 </p>
               </div>
 
-              {/* Video Preview Card */}
               {youtubeVideoId && (
-                <div className="p-4 rounded-2xl bg-neutral-950 border border-[#34495E]/70 flex items-center gap-4">
+                <div className="p-4 rounded-xl bg-[#0D0F12] border border-[#262B36] flex items-center gap-4">
                   <img
                     src={`https://img.youtube.com/vi/${youtubeVideoId}/hqdefault.jpg`}
                     alt="YouTube Video Thumbnail"
-                    className="w-28 h-18 object-cover rounded-xl border border-[#34495E]/60 shadow-md shrink-0"
+                    className="w-28 h-18 object-cover rounded-lg border border-[#262B36] shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-red-950/60 text-red-300 border border-red-800/40 font-bold">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-800/40 font-bold">
                       YouTube Video Detected
                     </span>
-                    <h4 className="text-xs font-bold text-neutral-100 mt-1 truncate">
+                    <h4 className="text-xs font-bold text-[#F9FAFB] mt-1 truncate">
                       {title || `YouTube Video ID: ${youtubeVideoId}`}
                     </h4>
                     <a
                       href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] text-[#a569bd] hover:text-[#8E44AD] flex items-center gap-1 mt-1 transition"
+                      className="text-[11px] text-[#A78BFA] hover:text-[#F9FAFB] flex items-center gap-1 mt-1 transition"
                     >
                       <span>Open on YouTube</span>
                       <ExternalLink className="w-3 h-3" />
@@ -760,9 +763,8 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 </div>
               )}
 
-              {/* Preset Academic YouTube Lecture Examples */}
-              <div className="p-3.5 rounded-xl bg-neutral-950/60 border border-[#34495E]/50">
-                <span className="text-[10px] font-bold text-[#F1C40F] uppercase tracking-wider block mb-2">
+              <div className="p-3.5 rounded-xl bg-[#0D0F12] border border-[#262B36]">
+                <span className="text-xs font-bold text-[#7C3AED] uppercase tracking-wider block mb-2">
                   Try Sample Academic YouTube Lectures
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -773,7 +775,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       setTitle('3Blue1Brown: But what is a neural network?');
                       setSubject('Computer Science');
                     }}
-                    className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-[#34495E]/60 rounded-lg text-[11px] text-neutral-300 hover:text-white transition"
+                    className="px-2.5 py-1 bg-[#161922] hover:bg-[#1E222D] border border-[#262B36] rounded-lg text-[11px] text-[#9CA3AF] hover:text-[#F9FAFB] transition"
                   >
                     Neural Networks (3Blue1Brown)
                   </button>
@@ -784,7 +786,7 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       setTitle('Stanford: Introduction to Quantum Mechanics');
                       setSubject('Physics');
                     }}
-                    className="px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 border border-[#34495E]/60 rounded-lg text-[11px] text-neutral-300 hover:text-white transition"
+                    className="px-2.5 py-1 bg-[#161922] hover:bg-[#1E222D] border border-[#262B36] rounded-lg text-[11px] text-[#9CA3AF] hover:text-[#F9FAFB] transition"
                   >
                     Quantum Mechanics (Stanford)
                   </button>
@@ -796,27 +798,25 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           {/* TAB 3: AUDIO / RECORD LECTURE */}
           {activeTab === 'audio' && (
             <div className="space-y-4">
-              {/* Record Lecture Live Component */}
-              <div className="p-5 rounded-2xl bg-neutral-950 border border-[#34495E]/80 shadow-md">
+              <div className="p-5 rounded-xl bg-[#0D0F12] border border-[#262B36]">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-[#F1C40F]'}`} />
-                    <span className="text-xs font-bold text-neutral-200">
+                    <div className={`w-3 h-3 rounded-full ${isRecording ? 'bg-red-500 animate-ping' : 'bg-[#06B6D4]'}`} />
+                    <span className="text-xs font-bold text-[#F9FAFB]">
                       {isRecording ? (isRecordingPaused ? 'Recording Paused' : 'Recording Live Lecture...') : 'Record Lecture / Voice Note'}
                     </span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-[#F1C40F] bg-neutral-900 px-2.5 py-1 rounded-lg border border-[#34495E]/60">
+                  <span className="text-xs font-mono tabular-nums font-bold text-[#06B6D4] bg-[#161922] px-2.5 py-1 rounded-lg border border-[#262B36]">
                     {formatTimer(recordingSeconds)}
                   </span>
                 </div>
 
-                {/* Controls */}
                 <div className="flex items-center gap-2.5 flex-wrap">
                   {!isRecording ? (
                     <button
                       type="button"
                       onClick={startRecording}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-red-600/25 transition active:scale-95"
+                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition active:scale-95"
                     >
                       <Mic className="w-4 h-4" /> Start Recording
                     </button>
@@ -825,16 +825,16 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                       <button
                         type="button"
                         onClick={pauseRecording}
-                        className="px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
+                        className="px-3.5 py-2 bg-[#161922] hover:bg-[#1E222D] text-[#F9FAFB] border border-[#262B36] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition"
                       >
-                        {isRecordingPaused ? <Play className="w-3.5 h-3.5 text-[#2ECC71]" /> : <Pause className="w-3.5 h-3.5 text-[#F1C40F]" />}
+                        {isRecordingPaused ? <Play className="w-3.5 h-3.5 text-[#10B981]" /> : <Pause className="w-3.5 h-3.5 text-[#06B6D4]" />}
                         <span>{isRecordingPaused ? 'Resume' : 'Pause'}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={stopRecording}
-                        className="px-4 py-2 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#8E44AD]/30 transition active:scale-95"
+                        className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition active:scale-95"
                       >
                         <Square className="w-3.5 h-3.5" /> Stop & Finish
                       </button>
@@ -845,16 +845,15 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                     <button
                       type="button"
                       onClick={resetRecording}
-                      className="px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white rounded-xl text-xs font-medium flex items-center gap-1.5 transition"
+                      className="px-3 py-2 bg-[#161922] hover:bg-[#1E222D] text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#262B36] rounded-xl text-xs font-medium flex items-center gap-1.5 transition"
                     >
                       <RotateCcw className="w-3.5 h-3.5" /> Reset
                     </button>
                   )}
                 </div>
 
-                {/* Audio preview player */}
                 {recordedAudioUrl && !isRecording && (
-                  <div className="mt-4 pt-3 border-t border-[#34495E]/50 flex items-center gap-3">
+                  <div className="mt-4 pt-3 border-t border-[#262B36] flex items-center gap-3">
                     <audio
                       ref={audioPreviewRef}
                       src={recordedAudioUrl}
@@ -868,10 +867,9 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 )}
               </div>
 
-              {/* Or Upload Audio File (.mp3, .m4a, .wav) */}
               <div className="relative flex items-center justify-center">
-                <div className="border-t border-[#34495E]/60 w-full" />
-                <span className="bg-neutral-900 px-3 text-[11px] text-neutral-400 uppercase font-mono absolute">
+                <div className="border-t border-[#262B36] w-full" />
+                <span className="bg-[#161922] px-3 text-[11px] text-[#9CA3AF] uppercase font-mono absolute">
                   OR Upload Audio File
                 </span>
               </div>
@@ -887,12 +885,14 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 <button
                   type="button"
                   onClick={() => audioFileInputRef.current?.click()}
-                  className="w-full p-4 rounded-2xl border border-dashed border-[#34495E]/80 hover:border-[#8E44AD] bg-neutral-950/60 hover:bg-neutral-950 transition flex items-center justify-center gap-3 text-xs text-neutral-300"
+                  className="w-full p-4 rounded-xl border-2 border-dashed border-[#262B36] hover:border-[#7C3AED] bg-[#0D0F12] transition flex items-center justify-center gap-3 text-xs text-[#9CA3AF] hover:text-[#F9FAFB]"
                 >
-                  <Music className="w-5 h-5 text-[#8E44AD]" />
+                  <Music className="w-5 h-5 text-[#7C3AED]" />
                   <span>
                     {audioFile ? (
-                      <strong className="text-[#2ECC71]">{audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(1)} MB)</strong>
+                      <strong className="text-[#10B981]">
+                        {audioFile.name} ({(audioFile.size / 1024 / 1024).toFixed(1)} MB)
+                      </strong>
                     ) : (
                       'Choose .mp3, .m4a, or .wav lecture audio file'
                     )}
@@ -904,42 +904,44 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
           {/* Live Progress Bar when Processing */}
           {isProcessing && (
-            <div className="p-4 rounded-2xl bg-[#8E44AD]/15 border border-[#8E44AD]/40 text-purple-100 space-y-2 animate-in fade-in duration-200">
+            <div className="p-4 rounded-xl bg-[#0D0F12] border border-[#7C3AED]/50 text-[#F9FAFB] space-y-2 animate-in fade-in duration-200">
               <div className="flex items-center gap-2.5 text-xs font-medium">
-                <Loader2 className="w-4 h-4 animate-spin text-[#F1C40F]" />
-                <span>{loadingStep || 'Processing study materials with Gemini AI...'}</span>
+                <Loader2 className="w-4 h-4 animate-spin text-[#06B6D4]" />
+                <span>{loadingStep || 'Processing study materials...'}</span>
               </div>
-              <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-[#8E44AD] via-[#F1C40F] to-[#2ECC71] h-full w-4/5 animate-pulse" />
+              <div className="w-full bg-[#161922] h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[#7C3AED] h-full w-4/5 animate-pulse" />
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer Error Notice (Always visible on mobile without scrolling) */}
+        {/* Footer Error Notice */}
         {errorMessage && (
           <div className="pt-2">
-            <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/60 text-red-200 text-xs flex items-center gap-2 shadow-lg animate-in fade-in duration-150">
+            <div className="p-3 rounded-xl bg-red-950/80 border border-red-500/60 text-red-200 text-xs flex items-center gap-2 animate-in fade-in duration-150">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
               <span className="flex-1 leading-snug">{errorMessage}</span>
             </div>
           </div>
         )}
 
-        {/* Modal Footer */}
-        <div className="pt-3 border-t border-[#34495E]/50 flex items-center justify-between">
-          <span className="text-[11px] text-neutral-400">
-            Generates 30 Flashcards, 30 Questions & 30 Quizzes
-          </span>
-          <div className="flex items-center gap-2">
+        {/* Responsive Modal Footer Layout */}
+        <div className="pt-3 border-t border-[#262B36]">
+          <p className="text-xs text-slate-400 text-center mb-3">
+            Generates 30 Flashcards, 30 Notes & 30 Quizzes
+          </p>
+          <div className="flex gap-3 w-full">
             <button
+              type="button"
               onClick={onClose}
               disabled={isProcessing}
-              className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-medium transition border border-[#34495E]/60 disabled:opacity-50"
+              className="px-5 py-2.5 bg-[#0D0F12] hover:bg-[#1E222D] text-[#9CA3AF] hover:text-[#F9FAFB] rounded-xl text-xs font-semibold transition border border-[#262B36] disabled:opacity-50"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleCreateStudySuite}
               disabled={
                 isProcessing ||
@@ -947,15 +949,17 @@ export const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
                 (activeTab === 'youtube' && (!youtubeUrl.trim() || !youtubeVideoId)) ||
                 (activeTab === 'audio' && !audioFile && !recordedAudioBlob)
               }
-              className="px-5 py-2 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-semibold flex items-center gap-2 transition shadow-lg shadow-[#8E44AD]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 py-2.5 px-5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-[#F1C40F]" /> Generating...
+                  <Loader2 className="w-4 h-4 animate-spin text-[#06B6D4]" />
+                  <span>Generating...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-[#F1C40F]" /> Generate Study Suite
+                  <Sparkles className="w-4 h-4" />
+                  <span>Generate Study Suite</span>
                 </>
               )}
             </button>
