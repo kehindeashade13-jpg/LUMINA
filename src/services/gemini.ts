@@ -361,8 +361,7 @@ Format as a single JSON object with EXACTLY this structure:
       "difficulty": "intermediate"
     }
   ],
-  "tags": ["Tag1", "Tag2"],
-  "estimatedReadTimeMinutes": 8
+  "tags": ["Tag1", "Tag2"]
 }
 
 REQUIREMENTS:
@@ -523,7 +522,10 @@ REQUIREMENTS:
       quiz,
       practiceQuestions,
       tags: Array.isArray(parsed1.tags) ? parsed1.tags : [subject || 'General', 'High-Yield', 'Full Study Suite'],
-      estimatedReadTimeMinutes: parsed1.estimatedReadTimeMinutes || Math.max(5, Math.ceil(rawText.split(/\s+/).length / 180)),
+      estimatedReadTimeMinutes: Math.max(
+        1,
+        Math.ceil((rawText ? rawText.trim().split(/\s+/).filter(Boolean).length : 0) / 200)
+      ),
     };
 
     return material;
@@ -548,9 +550,9 @@ function guarantee30Flashcards(
     if (fc.options && fc.options.length >= 4 && typeof fc.correctOptionIndex === 'number') {
       return fc;
     }
-    // Build options if not present
-    const correctChoice = fc.back.slice(0, 120);
-    const otherBacks = existing.filter((_, idx) => idx !== i).map((x) => x.back.slice(0, 120));
+    // Build complete, untruncated options if not present
+    const correctChoice = fc.back.split(/\n\s*\n/)[0]?.trim() || fc.back;
+    const otherBacks = existing.filter((_, idx) => idx !== i).map((x) => x.back.split(/\n\s*\n/)[0]?.trim() || x.back);
     const distractors = otherBacks.length >= 3
       ? otherBacks.slice(0, 3)
       : [
@@ -637,12 +639,13 @@ function guarantee30Flashcards(
       `Distractor reversing first-order causal mechanisms.`,
       `Distractor omitting fundamental boundary constraints.`,
     ];
-    opts.splice(correctIdx, 0, p.slice(0, 110));
+    const firstSentence = p.split(/(?<=\.)\s+/)[0] || p;
+    opts.splice(correctIdx, 0, firstSentence);
     const letteredOpts = opts.map((o, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${o}`);
     result.push({
       id: `fc_gen_${result.length + 1}_${Date.now()}`,
       front: `Item ${result.length + 1}: What is the high-yield principle governing ${subject} subtopic ${result.length + 1}?`,
-      back: `**Concept Breakdown:** ${p.slice(0, 240)}...\n\n**Why It Matters:** Essential for comprehensive mastery across analytical benchmarks and exams.`,
+      back: `**Concept Breakdown:** ${p}\n\n**Why It Matters:** Essential for comprehensive mastery across analytical benchmarks and exams.`,
       hint: `Review the foundational text in "${title}".`,
       difficulty: result.length % 3 === 0 ? 'hard' : result.length % 2 === 0 ? 'medium' : 'easy',
       mastered: false,
@@ -1040,6 +1043,6 @@ Every paragraph, subtopic, and operational relationship has been exhaustively di
     quiz,
     practiceQuestions,
     tags: [cleanSubject, 'Core Curriculum', '90 Items', 'High Yield'],
-    estimatedReadTimeMinutes: Math.max(5, Math.ceil(wordCount / 180)),
+    estimatedReadTimeMinutes: Math.max(1, Math.ceil(wordCount / 200)),
   };
 }

@@ -5,11 +5,15 @@ import App from './App.tsx';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 
-// Register service worker for PWA auto-updates and offline caching across all browsers
-if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  registerSW({
-    immediate: true,
-  });
+// Register service worker only in production builds to avoid HMR WebSocket calls when HMR is disabled
+if (import.meta.env.PROD && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    registerSW({
+      immediate: true,
+    });
+  } catch (e) {
+    // Ignore SW registration errors in restricted frames
+  }
 }
 
 createRoot(document.getElementById('root')!).render(

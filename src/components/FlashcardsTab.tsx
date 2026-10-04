@@ -9,7 +9,6 @@ import {
   XCircle,
   Lightbulb,
   List,
-  Eye,
   Check,
   Plus,
   Loader2,
@@ -18,12 +17,26 @@ import {
 import { Flashcard, StudyMaterial } from '../types/study';
 import { saveMaterialToDatabase } from '../services/supabase';
 import { generateMoreFlashcards } from '../services/gemini';
+import { cleanPromptArtifacts } from '../utils/formatters';
 
 interface FlashcardsTabProps {
   material: StudyMaterial | null;
   onUpdateMaterial: (updated: StudyMaterial) => void;
   onNavigateToTab: (tab: 'notes' | 'quiz' | 'documents') => void;
 }
+
+/**
+ * Extracts a complete, untruncated definition paragraph from a flashcard back string
+ * without cutting off mid-sentence.
+ */
+const extractCompleteDefinition = (backText?: string): string => {
+  if (!backText) return '';
+  const cleaned = cleanPromptArtifacts(backText)
+    .replace(/^\*\*[^*]+:\*\*\s*/i, '')
+    .trim();
+  const firstParagraph = cleaned.split(/\n\s*\n/)[0]?.trim() || cleaned;
+  return firstParagraph;
+};
 
 export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   material,
@@ -44,28 +57,46 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   const masteredCount = flashcards.filter((f) => f.mastered).length;
   const progressPercent = flashcards.length > 0 ? Math.round((masteredCount / flashcards.length) * 100) : 0;
 
-  // Derive 4 multiple-choice options if missing on card
-  const getCardOptions = useCallback((card?: Flashcard, cardIdx: number = 0): { options: string[]; correctIdx: number } => {
-    if (!card) return { options: [], correctIdx: 0 };
-    if (card.options && card.options.length >= 4 && typeof card.correctOptionIndex === 'number') {
-      return { options: card.options, correctIdx: card.correctOptionIndex };
-    }
-    const correctChoice = (card.back || '').slice(0, 110);
-    const otherCards = flashcards.filter((_, idx) => idx !== cardIdx);
-    const otherBacks = otherCards.map((c) => (c.back || '').slice(0, 110));
-    const distractors = otherBacks.length >= 3
-      ? otherBacks.slice(0, 3)
-      : [
-          'Inapplicable condition where primary forces cancel out and destabilize baseline parameters.',
-          'Secondary asymptotic limit observed only in isolated closed-loop configurations.',
-          'Transient state leading to standard baseline decay under nominal conditions.',
-        ];
-    const correctIdx = cardIdx % 4;
-    const opts = [...distractors];
-    opts.splice(correctIdx, 0, correctChoice);
-    const letteredOpts = opts.map((opt, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${opt.replace(/^[A-D]\)\s*/, '')}`);
-    return { options: letteredOpts, correctIdx };
-  }, [flashcards]);
+  // Derive 4 complete, untruncated multiple-choice options
+  const getCardOptions = useCallback(
+    (card?: Flashcard, cardIdx: number = 0): { options: string[]; correctIdx: number } => {
+      if (!card) return { options: [], correctIdx: 0 };
+      if (card.options && card.options.length >= 4 && typeof card.correctOptionIndex === 'number') {
+        const cleanedOptions = card.options.map((opt, oIdx) => {
+          const stripped = cleanPromptArtifacts(opt).replace(/^[A-D]\)\s*/, '');
+          // If a legacy stored option ended with "..." or was sliced at 110-120 chars and matches the start of card.back, restore full definition
+          if (oIdx === card.correctOptionIndex && card.back && stripped.length >= 100) {
+            const fullDef = extractCompleteDefinition(card.back);
+            if (fullDef.startsWith(stripped.slice(0, 40))) {
+              return `${String.fromCharCode(65 + oIdx)}) ${fullDef}`;
+            }
+          }
+          return `${String.fromCharCode(65 + oIdx)}) ${stripped}`;
+        });
+        return { options: cleanedOptions, correctIdx: card.correctOptionIndex };
+      }
+
+      const correctChoice = extractCompleteDefinition(card.back);
+      const otherCards = flashcards.filter((_, idx) => idx !== cardIdx);
+      const otherBacks = otherCards.map((c) => extractCompleteDefinition(c.back)).filter(Boolean);
+      const distractors =
+        otherBacks.length >= 3
+          ? otherBacks.slice(0, 3)
+          : [
+              'Inapplicable condition where primary forces cancel out and destabilize baseline parameters.',
+              'Secondary asymptotic limit observed only in isolated closed-loop configurations.',
+              'Transient state leading to standard baseline decay under nominal conditions.',
+            ];
+      const correctIdx = cardIdx % 4;
+      const opts = [...distractors];
+      opts.splice(correctIdx, 0, correctChoice);
+      const letteredOpts = opts.map(
+        (opt, oIdx) => `${String.fromCharCode(65 + oIdx)}) ${cleanPromptArtifacts(opt).replace(/^[A-D]\)\s*/, '')}`
+      );
+      return { options: letteredOpts, correctIdx };
+    },
+    [flashcards]
+  );
 
   // Reset flashcards state when document changes
   useEffect(() => {
@@ -96,24 +127,27 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
     setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length);
   }, [flashcards.length]);
 
-  const handleSelectOption = useCallback((optIdx: number) => {
-    if (isAnswered || !material || !currentCard) return;
-    setSelectedOption(optIdx);
-    setIsAnswered(true);
+  const handleSelectOption = useCallback(
+    (optIdx: number) => {
+      if (isAnswered || !material || !currentCard) return;
+      setSelectedOption(optIdx);
+      setIsAnswered(true);
 
-    const isCorrect = optIdx === currentCorrectIdx;
-    const updatedCards = [...flashcards];
-    updatedCards[currentIndex] = {
-      ...currentCard,
-      mastered: isCorrect ? true : currentCard.mastered,
-      reviewCount: (currentCard.reviewCount || 0) + 1,
-      lastReviewed: new Date().toISOString(),
-    };
+      const isCorrect = optIdx === currentCorrectIdx;
+      const updatedCards = [...flashcards];
+      updatedCards[currentIndex] = {
+        ...currentCard,
+        mastered: isCorrect ? true : currentCard.mastered,
+        reviewCount: (currentCard.reviewCount || 0) + 1,
+        lastReviewed: new Date().toISOString(),
+      };
 
-    const updated = { ...material, flashcards: updatedCards };
-    onUpdateMaterial(updated);
-    saveMaterialToDatabase(updated);
-  }, [isAnswered, material, currentCard, currentCorrectIdx, flashcards, currentIndex, onUpdateMaterial]);
+      const updated = { ...material, flashcards: updatedCards };
+      onUpdateMaterial(updated);
+      saveMaterialToDatabase(updated);
+    },
+    [isAnswered, material, currentCard, currentCorrectIdx, flashcards, currentIndex, onUpdateMaterial]
+  );
 
   const handleShuffle = () => {
     if (!material) return;
@@ -144,26 +178,28 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
     setIsAnswered(false);
   };
 
-  const handleRate = useCallback((rating: 'again' | 'hard' | 'good' | 'easy') => {
-    if (!material || !currentCard) return;
-    const isMastered = rating === 'easy';
-    const updatedCards = [...flashcards];
-    updatedCards[currentIndex] = {
-      ...currentCard,
-      mastered: isMastered,
-      reviewCount: (currentCard.reviewCount || 0) + 1,
-      lastReviewed: new Date().toISOString(),
-    };
+  const handleRate = useCallback(
+    (rating: 'again' | 'hard' | 'good' | 'easy') => {
+      if (!material || !currentCard) return;
+      const isMastered = rating === 'easy';
+      const updatedCards = [...flashcards];
+      updatedCards[currentIndex] = {
+        ...currentCard,
+        mastered: isMastered,
+        reviewCount: (currentCard.reviewCount || 0) + 1,
+        lastReviewed: new Date().toISOString(),
+      };
 
-    const updated = { ...material, flashcards: updatedCards };
-    onUpdateMaterial(updated);
-    saveMaterialToDatabase(updated);
+      const updated = { ...material, flashcards: updatedCards };
+      onUpdateMaterial(updated);
+      saveMaterialToDatabase(updated);
 
-    // Auto advance after small flip animation
-    setTimeout(() => {
-      handleNext();
-    }, 200);
-  }, [material, currentCard, flashcards, currentIndex, onUpdateMaterial, handleNext]);
+      setTimeout(() => {
+        handleNext();
+      }, 200);
+    },
+    [material, currentCard, flashcards, currentIndex, onUpdateMaterial, handleNext]
+  );
 
   const handleGenerateMore = async () => {
     if (!material) return;
@@ -216,15 +252,15 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
 
   if (!material || material.flashcards.length === 0) {
     return (
-      <div className="p-16 text-center border border-dashed border-[#34495E]/60 rounded-2xl bg-neutral-950/50">
-        <Sparkles className="w-10 h-10 text-[#F1C40F] mx-auto mb-3" />
-        <h3 className="text-base font-bold text-neutral-100">No documents uploaded yet</h3>
-        <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
-          Upload a study document to automatically generate interactive active-recall flashcards with option pickers.
+      <div className="p-16 text-center border-2 border-dashed border-[#262B36] rounded-2xl bg-[#161922]">
+        <Sparkles className="w-10 h-10 text-[#7C3AED] mx-auto mb-3" />
+        <h3 className="text-base font-bold text-[#F9FAFB]">No documents uploaded yet</h3>
+        <p className="text-xs text-[#9CA3AF] mt-1 max-w-sm mx-auto">
+          Upload a study document to automatically generate interactive active-recall flashcards.
         </p>
         <button
           onClick={() => onNavigateToTab('documents')}
-          className="mt-4 px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-lg shadow-[#8E44AD]/25"
+          className="mt-4 px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-sm"
         >
           Upload Document
         </button>
@@ -235,40 +271,40 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-neutral-900 border border-[#34495E]/60 shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#161922] border border-[#262B36]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30">
+          <div className="flex items-center gap-2 text-xs text-[#9CA3AF] font-mono tabular-nums">
+            <span className="font-sans font-semibold text-[#06B6D4]">
               {material.subject}
             </span>
-            <span className="text-xs text-neutral-400">
+            <span aria-hidden="true">•</span>
+            <span>
               Card {currentIndex + 1} of {flashcards.length}
             </span>
           </div>
-          <h2 className="text-lg font-bold text-neutral-100 mt-1">Interactive Flashcards with Options</h2>
+          <h2 className="text-lg font-bold text-[#F9FAFB] mt-1">Interactive Flashcards</h2>
         </div>
 
         {/* View Switcher, Mode Toggle & Actions */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Study Mode Selector (Pick Option vs 3D Flip) */}
-          <div className="flex items-center bg-neutral-950 p-1 rounded-xl border border-[#34495E]/60 text-xs font-semibold">
+          <div className="flex items-center bg-[#0D0F12] p-1 rounded-xl border border-[#262B36] text-xs font-semibold">
             <button
               onClick={() => setStudyMode('options')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition whitespace-nowrap ${
                 studyMode === 'options'
-                  ? 'bg-[#8E44AD] text-white shadow-sm shadow-[#8E44AD]/25'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                  : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
               }`}
             >
-              <CheckSquare className="w-3.5 h-3.5 text-[#F1C40F]" />
+              <CheckSquare className="w-3.5 h-3.5" />
               <span>Pick Option</span>
             </button>
             <button
               onClick={() => setStudyMode('flip')}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition ${
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition whitespace-nowrap ${
                 studyMode === 'flip'
-                  ? 'bg-[#8E44AD] text-white shadow-sm shadow-[#8E44AD]/25'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                  : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
               }`}
             >
               <RotateCw className="w-3.5 h-3.5" />
@@ -276,23 +312,23 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center bg-neutral-950 p-1 rounded-xl border border-[#34495E]/60 text-xs font-semibold">
+          <div className="flex items-center bg-[#0D0F12] p-1 rounded-xl border border-[#262B36] text-xs font-semibold">
             <button
               onClick={() => setViewMode('deck')}
-              className={`px-3 py-1.5 rounded-lg transition ${
+              className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
                 viewMode === 'deck'
-                  ? 'bg-[#34495E] text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                  : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
               }`}
             >
               Deck Mode
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 py-1.5 rounded-lg transition ${
+              className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${
                 viewMode === 'list'
-                  ? 'bg-[#34495E] text-white shadow-sm'
-                  : 'text-neutral-400 hover:text-neutral-200'
+                  ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                  : 'text-[#9CA3AF] hover:text-[#F9FAFB]'
               }`}
             >
               <List className="w-3.5 h-3.5 inline mr-1" />
@@ -303,40 +339,40 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
           <button
             onClick={handleShuffle}
             title="Shuffle deck randomly"
-            className="p-2 rounded-xl bg-neutral-950 border border-[#34495E]/60 text-neutral-400 hover:text-white hover:border-[#8E44AD] transition"
+            className="p-2 rounded-xl bg-[#0D0F12] border border-[#262B36] text-[#9CA3AF] hover:text-[#F9FAFB] hover:border-[#7C3AED] transition"
           >
-            <Shuffle className="w-4 h-4 text-[#F1C40F]" />
+            <Shuffle className="w-4 h-4 text-[#06B6D4]" />
           </button>
         </div>
       </div>
 
       {/* Progress & Spaced Repetition Stats Bar */}
-      <div className="p-4 rounded-2xl bg-neutral-900 border border-[#34495E]/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="p-4 rounded-2xl bg-[#161922] border border-[#262B36] flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="w-full sm:w-1/2">
           <div className="flex justify-between text-xs font-semibold mb-1.5">
-            <span className="text-neutral-300">Deck Mastery Progress</span>
-            <span className="text-[#2ECC71] font-mono">{progressPercent}%</span>
+            <span className="text-[#9CA3AF]">Deck Mastery Progress</span>
+            <span className="text-[#10B981] font-mono tabular-nums">{progressPercent}%</span>
           </div>
-          <div className="w-full bg-neutral-950 h-2 rounded-full overflow-hidden border border-[#34495E]/40">
+          <div className="w-full bg-[#0D0F12] h-2 rounded-full overflow-hidden border border-[#262B36]">
             <div
-              className="bg-gradient-to-r from-[#8E44AD] via-[#F1C40F] to-[#2ECC71] h-full transition-all duration-300"
+              className="bg-[#7C3AED] h-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-medium w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex items-center gap-1.5 text-[#2ECC71]">
+        <div className="flex items-center gap-4 text-xs font-medium w-full sm:w-auto justify-between sm:justify-end font-mono tabular-nums">
+          <div className="flex items-center gap-1.5 text-[#10B981]">
             <CheckCircle2 className="w-4 h-4" />
             <span>{masteredCount} Mastered</span>
           </div>
-          <div className="flex items-center gap-1.5 text-neutral-400">
-            <RotateCw className="w-4 h-4 text-[#F1C40F]" />
+          <div className="flex items-center gap-1.5 text-[#06B6D4]">
+            <RotateCw className="w-4 h-4" />
             <span>{flashcards.length - masteredCount} Learning</span>
           </div>
           <button
             onClick={handleResetMastery}
-            className="text-[11px] text-neutral-400 hover:text-neutral-200 underline ml-2"
+            className="text-xs font-sans text-[#9CA3AF] hover:text-[#F9FAFB] underline ml-2"
           >
             Reset
           </button>
@@ -346,41 +382,35 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
       {/* VIEW MODE 1: INTERACTIVE DECK (OPTIONS PICKER + 3D FLIP) */}
       {viewMode === 'deck' ? (
         <div className="space-y-4">
-          {/* Card Container */}
           <div
-            className="relative w-full min-h-[380px] sm:min-h-[420px] rounded-3xl cursor-pointer perspective-1000 select-none group"
+            className="relative w-full rounded-2xl cursor-pointer perspective-1000 select-none group"
             onClick={() => {
               if (studyMode === 'flip') setIsFlipped((prev) => !prev);
             }}
           >
             <div
-              className={`w-full h-full min-h-[380px] sm:min-h-[420px] rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all duration-500 transform-style-3d border ${
+              className={`w-full h-auto min-h-[360px] rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all duration-500 transform-style-3d border bg-[#161922] ${
                 studyMode === 'flip' && isFlipped
-                  ? 'rotate-y-180 bg-neutral-900 border-[#8E44AD] shadow-2xl shadow-[#8E44AD]/20'
-                  : 'bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 border-[#34495E]/80 shadow-2xl'
+                  ? 'rotate-y-180 border-[#7C3AED]'
+                  : 'border-[#262B36]'
               }`}
             >
               {/* FRONT OF CARD (Or Options Selection View) */}
               {(!isFlipped || studyMode === 'options') && (
                 <div className="flex flex-col justify-between h-full space-y-6">
-                  {/* Top Card Badge / Controls */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-[#8E44AD]/20 text-[#a569bd] border border-[#8E44AD]/40">
+                  {/* Top Card Metadata & Controls */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-mono tabular-nums text-[#9CA3AF]">
+                      <span className="font-bold text-[#7C3AED]">
                         Concept {currentIndex + 1}
                       </span>
                       {currentCard?.difficulty && (
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border ${
-                            currentCard.difficulty === 'easy'
-                              ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
-                              : currentCard.difficulty === 'hard'
-                              ? 'bg-rose-950/60 text-rose-400 border-rose-800/40'
-                              : 'bg-amber-950/60 text-[#F1C40F] border-amber-800/40'
-                          }`}
-                        >
-                          {currentCard.difficulty}
-                        </span>
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="font-sans capitalize text-[#9CA3AF]">
+                            {currentCard.difficulty}
+                          </span>
+                        </>
                       )}
                     </div>
 
@@ -392,54 +422,55 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                             e.stopPropagation();
                             setShowHint(!showHint);
                           }}
-                          className="px-2.5 py-1 rounded-lg bg-neutral-950 border border-[#34495E]/60 text-neutral-400 hover:text-[#F1C40F] hover:border-[#F1C40F]/40 text-xs font-semibold flex items-center gap-1.5 transition"
+                          className="px-3 py-1.5 rounded-xl bg-[#0D0F12] border border-[#262B36] text-[#9CA3AF] hover:text-[#F9FAFB] hover:border-[#7C3AED] text-xs font-semibold flex items-center gap-1.5 transition"
                         >
-                          <Lightbulb className="w-3.5 h-3.5 text-[#F1C40F]" />
+                          <Lightbulb className="w-3.5 h-3.5 text-[#06B6D4]" />
                           <span>{showHint ? 'Hide Hint' : 'Hint'}</span>
                         </button>
                       )}
 
                       {currentCard?.mastered && (
-                        <span className="text-xs font-bold text-[#2ECC71] flex items-center gap-1 bg-emerald-950/60 border border-emerald-800/40 px-2.5 py-1 rounded-xl">
+                        <span className="text-xs font-semibold text-[#10B981] flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Mastered
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* Question / Prompt Text */}
-                  <div className="my-auto py-3">
-                    <h3 className="text-xl sm:text-2xl font-extrabold text-neutral-100 tracking-tight leading-snug">
-                      {currentCard?.front}
+                  {/* Question / Prompt Text (Cleaned of any raw AI subtitle artifacts) */}
+                  <div className="py-2">
+                    <h3 className="text-xl sm:text-2xl font-bold text-[#F9FAFB] tracking-tight leading-snug">
+                      {cleanPromptArtifacts(currentCard?.front)}
                     </h3>
 
                     {showHint && currentCard?.hint && (
-                      <div className="mt-4 p-3.5 rounded-xl bg-[#F1C40F]/10 border border-[#F1C40F]/30 text-[#F1C40F] text-xs leading-relaxed animate-in fade-in duration-150">
-                        <strong className="font-bold">Hint:</strong> {currentCard.hint}
+                      <div className="mt-4 p-4 rounded-xl bg-[#0D0F12] border border-[#262B36] text-[#06B6D4] text-xs leading-relaxed animate-in fade-in duration-150">
+                        <strong className="font-bold text-[#F9FAFB]">Hint: </strong>
+                        <span>{cleanPromptArtifacts(currentCard.hint)}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* MULTIPLE CHOICE OPTIONS PICKER (When in 'options' mode) */}
+                  {/* MULTIPLE CHOICE OPTIONS PICKER (Auto-height p-4 h-auto w-full text-left, zero mid-sentence truncation) */}
                   {studyMode === 'options' ? (
-                    <div className="space-y-2 mt-4" onClick={(e) => e.stopPropagation()}>
-                      <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-                        <span>Select the correct definition / answer:</span>
-                        <span className="text-[10px] text-neutral-400">Keys: 1/A, 2/B, 3/C, 4/D</span>
-                      </p>
-                      <div className="grid grid-cols-1 gap-2">
+                    <div className="space-y-2.5 mt-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="grid grid-cols-1 gap-2.5">
                         {currentOptions.map((optText, optIdx) => {
                           const isSelected = selectedOption === optIdx;
                           const isCorrect = optIdx === currentCorrectIdx;
-                          let btnStyle = 'bg-neutral-950/80 hover:bg-neutral-800 text-neutral-200 border-[#34495E]/60';
+                          let btnStyle =
+                            'bg-[#0D0F12] hover:bg-[#1C202B] text-[#F9FAFB] border-[#262B36] hover:border-[#7C3AED]';
 
                           if (isAnswered) {
                             if (isCorrect) {
-                              btnStyle = 'bg-emerald-950/80 border-emerald-500 text-emerald-100 shadow-md shadow-emerald-900/30';
+                              btnStyle =
+                                'bg-[#10B981]/15 border-[#10B981] text-[#F9FAFB] ring-1 ring-[#10B981]/40';
                             } else if (isSelected && !isCorrect) {
-                              btnStyle = 'bg-rose-950/80 border-rose-500 text-rose-100';
+                              btnStyle =
+                                'bg-rose-950/50 border-rose-500 text-rose-100';
                             } else {
-                              btnStyle = 'opacity-40 border-neutral-800 bg-neutral-950 text-neutral-500';
+                              btnStyle =
+                                'opacity-45 border-[#262B36] bg-[#0D0F12] text-[#9CA3AF]';
                             }
                           }
 
@@ -449,14 +480,16 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                               type="button"
                               onClick={() => handleSelectOption(optIdx)}
                               disabled={isAnswered}
-                              className={`w-full p-3 rounded-xl border text-left text-xs sm:text-sm font-medium transition flex items-center justify-between gap-3 ${btnStyle}`}
+                              className={`p-4 h-auto w-full text-left rounded-xl border text-xs sm:text-sm font-medium transition flex items-start justify-between gap-3 ${btnStyle}`}
                             >
-                              <span className="leading-relaxed">{optText}</span>
+                              <span className="leading-relaxed whitespace-normal break-words flex-1">
+                                {cleanPromptArtifacts(optText)}
+                              </span>
                               {isAnswered && isCorrect && (
-                                <Check className="w-4 h-4 text-[#2ECC71] shrink-0" />
+                                <Check className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
                               )}
                               {isAnswered && isSelected && !isCorrect && (
-                                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                                <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                               )}
                             </button>
                           );
@@ -465,22 +498,26 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
 
                       {/* Explanation Reveal when answered */}
                       {isAnswered && (
-                        <div className="mt-3 p-3.5 rounded-xl bg-[#8E44AD]/10 border border-[#8E44AD]/30 text-xs text-purple-200 animate-in fade-in duration-150 flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-[#2ECC71] shrink-0 mt-0.5" />
-                          <div>
-                            <strong className="text-white font-semibold">Core Concept: </strong>
-                            <span>{currentCard?.back}</span>
+                        <div className="mt-3 p-4 rounded-xl bg-[#0D0F12] border border-[#262B36] text-xs text-[#F9FAFB] animate-in fade-in duration-150 flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0 mt-0.5" />
+                          <div className="leading-relaxed">
+                            <strong className="text-[#7C3AED] uppercase tracking-wider text-xs font-bold block mb-1">
+                              Core Concept Explanation
+                            </strong>
+                            <span className="text-[#9CA3AF] whitespace-pre-line">
+                              {cleanPromptArtifacts(currentCard?.back)}
+                            </span>
                           </div>
                         </div>
                       )}
                     </div>
                   ) : (
                     /* 3D FLIP INSTRUCTION HINT */
-                    <div className="flex items-center justify-between text-xs text-neutral-400 pt-3 border-t border-[#34495E]/50">
-                      <span className="flex items-center gap-1.5 text-[#F1C40F]">
-                        <RotateCw className="w-3.5 h-3.5" /> Click or Press Space to flip
+                    <div className="flex items-center justify-between text-xs text-[#9CA3AF] pt-4 border-t border-[#262B36]">
+                      <span className="flex items-center gap-1.5 text-[#06B6D4]">
+                        <RotateCw className="w-3.5 h-3.5" /> Click card or press Space to flip
                       </span>
-                      <span className="font-mono text-[11px] text-neutral-400">
+                      <span className="font-mono tabular-nums text-[11px] text-[#9CA3AF]">
                         Card {currentIndex + 1} / {flashcards.length}
                       </span>
                     </div>
@@ -491,59 +528,59 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
               {/* BACK OF CARD (When in 'flip' mode and isFlipped is true) */}
               {isFlipped && studyMode === 'flip' && (
                 <div className="flex flex-col justify-between h-full space-y-6 rotate-y-180">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-emerald-950/60 text-[#2ECC71] border border-emerald-800/40">
+                  <div className="flex items-center justify-between text-xs font-mono tabular-nums">
+                    <span className="font-bold text-[#10B981] uppercase tracking-wider">
                       Explanation & Solution
                     </span>
-                    <span className="text-xs text-neutral-400">Card {currentIndex + 1}</span>
+                    <span className="text-[#9CA3AF]">Card {currentIndex + 1}</span>
                   </div>
 
                   <div className="my-auto py-2">
-                    <p className="text-base sm:text-lg text-neutral-100 font-medium leading-relaxed whitespace-pre-line">
-                      {currentCard?.back}
+                    <p className="text-base sm:text-lg text-[#F9FAFB] font-medium leading-relaxed whitespace-pre-line">
+                      {cleanPromptArtifacts(currentCard?.back)}
                     </p>
                   </div>
 
                   {/* Spaced Repetition Rating Buttons */}
                   <div
-                    className="pt-4 border-t border-[#34495E]/50 space-y-2"
+                    className="pt-4 border-t border-[#262B36] space-y-2.5"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider text-center">
-                      Rate Recall Difficulty (Keys: 1, 2, 3, 4)
+                    <p className="text-xs font-bold text-[#7C3AED] uppercase tracking-wider text-center">
+                      Rate Recall Confidence
                     </p>
                     <div className="grid grid-cols-4 gap-2">
                       <button
                         type="button"
                         onClick={() => handleRate('again')}
-                        className="py-2 px-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 rounded-xl text-rose-300 text-xs font-bold transition flex flex-col items-center"
+                        className="py-2.5 px-2 bg-[#0D0F12] hover:bg-rose-950/60 border border-[#262B36] hover:border-rose-500 rounded-xl text-rose-400 text-xs font-bold transition flex flex-col items-center"
                       >
                         <span>Again</span>
-                        <span className="text-[10px] text-rose-400 font-normal">1 min</span>
+                        <span className="text-[10px] text-[#9CA3AF] font-normal">1m</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRate('hard')}
-                        className="py-2 px-2 bg-amber-950/60 hover:bg-amber-900 border border-amber-800/60 rounded-xl text-[#F1C40F] text-xs font-bold transition flex flex-col items-center"
+                        className="py-2.5 px-2 bg-[#0D0F12] hover:bg-amber-950/60 border border-[#262B36] hover:border-amber-500 rounded-xl text-amber-400 text-xs font-bold transition flex flex-col items-center"
                       >
                         <span>Hard</span>
-                        <span className="text-[10px] text-amber-400 font-normal">6 mins</span>
+                        <span className="text-[10px] text-[#9CA3AF] font-normal">6m</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRate('good')}
-                        className="py-2 px-2 bg-blue-950/60 hover:bg-blue-900 border border-blue-800/60 rounded-xl text-blue-300 text-xs font-bold transition flex flex-col items-center"
+                        className="py-2.5 px-2 bg-[#0D0F12] hover:bg-[#06B6D4]/20 border border-[#262B36] hover:border-[#06B6D4] rounded-xl text-[#06B6D4] text-xs font-bold transition flex flex-col items-center"
                       >
                         <span>Good</span>
-                        <span className="text-[10px] text-blue-400 font-normal">1 day</span>
+                        <span className="text-[10px] text-[#9CA3AF] font-normal">1d</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleRate('easy')}
-                        className="py-2 px-2 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-800/60 rounded-xl text-[#2ECC71] text-xs font-bold transition flex flex-col items-center"
+                        className="py-2.5 px-2 bg-[#0D0F12] hover:bg-[#10B981]/20 border border-[#262B36] hover:border-[#10B981] rounded-xl text-[#10B981] text-xs font-bold transition flex flex-col items-center"
                       >
                         <span>Easy</span>
-                        <span className="text-[10px] text-emerald-400 font-normal">4 days</span>
+                        <span className="text-[10px] text-[#9CA3AF] font-normal">4d</span>
                       </button>
                     </div>
                   </div>
@@ -553,16 +590,15 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
           </div>
 
           {/* Navigation Controls Bar */}
-          <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-neutral-900 border border-[#34495E]/60 shadow-md">
+          <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#161922] border border-[#262B36]">
             <button
               type="button"
               onClick={handlePrev}
-              className="px-4 py-2 bg-neutral-950 hover:bg-neutral-800 border border-[#34495E]/60 rounded-xl text-xs font-semibold text-neutral-200 flex items-center gap-1.5 transition active:scale-95"
+              className="px-4 py-2 bg-[#0D0F12] hover:bg-[#1E222D] border border-[#262B36] rounded-xl text-xs font-semibold text-[#F9FAFB] flex items-center gap-1.5 transition active:scale-95"
             >
               <ChevronLeft className="w-4 h-4" /> Previous
             </button>
 
-            {/* Jump Buttons Matrix */}
             <div className="hidden sm:flex items-center gap-1 overflow-x-auto max-w-[400px] px-2 py-1">
               {flashcards.map((f, idx) => (
                 <button
@@ -574,12 +610,12 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                     setSelectedOption(null);
                     setIsAnswered(false);
                   }}
-                  className={`w-6 h-6 rounded-lg text-[10px] font-mono font-bold transition flex items-center justify-center shrink-0 ${
+                  className={`w-6 h-6 rounded-lg text-[10px] font-mono tabular-nums font-bold transition flex items-center justify-center shrink-0 ${
                     currentIndex === idx
-                      ? 'bg-[#8E44AD] text-white shadow-md'
+                      ? 'bg-[#7C3AED] text-[#F9FAFB]'
                       : f.mastered
-                      ? 'bg-emerald-950/80 text-[#2ECC71] border border-emerald-800/40'
-                      : 'bg-neutral-950 text-neutral-400 hover:text-white border border-[#34495E]/40'
+                      ? 'bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'
+                      : 'bg-[#0D0F12] text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#262B36]'
                   }`}
                 >
                   {idx + 1}
@@ -590,23 +626,23 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
             <button
               type="button"
               onClick={handleNext}
-              className="px-4 py-2 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#8E44AD]/30 transition active:scale-95"
+              className="px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition active:scale-95"
             >
               Next <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       ) : (
-        /* VIEW MODE 2: EXHAUSTIVE LIST VIEW (All 30 Cards) */
+        /* VIEW MODE 2: LIST VIEW (All 30 Cards) */
         <div className="space-y-3">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-bold text-neutral-200">
-              All 30 Flashcards & Options ({flashcards.length})
+            <h3 className="text-sm font-bold text-[#F9FAFB]">
+              All Flashcards ({flashcards.length})
             </h3>
             <button
               onClick={handleGenerateMore}
               disabled={isGeneratingMore}
-              className="px-3 py-1.5 bg-[#8E44AD]/20 hover:bg-[#8E44AD]/30 border border-[#8E44AD]/40 text-[#a569bd] hover:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
+              className="px-3.5 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold flex items-center gap-1.5 transition disabled:opacity-50"
             >
               {isGeneratingMore ? (
                 <>
@@ -614,52 +650,55 @@ export const FlashcardsTab: React.FC<FlashcardsTabProps> = ({
                 </>
               ) : (
                 <>
-                  <Plus className="w-3.5 h-3.5" /> Generate +10 Flashcards
+                  <Plus className="w-3.5 h-3.5" /> Generate More Cards
                 </>
               )}
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {flashcards.map((card, idx) => {
               const cardOpts = getCardOptions(card, idx);
               return (
                 <div
                   key={card.id || idx}
-                  className="p-4 rounded-2xl bg-neutral-900 border border-[#34495E]/60 hover:border-[#8E44AD]/60 transition shadow-sm space-y-3"
+                  className="p-4 rounded-2xl bg-[#161922] border border-[#262B36] hover:border-[#7C3AED]/60 transition space-y-3"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30">
+                  <div className="flex items-center justify-between text-xs font-mono tabular-nums">
+                    <span className="font-bold text-[#7C3AED]">
                       Card #{idx + 1}
                     </span>
                     {card.mastered && (
-                      <span className="text-[10px] font-bold text-[#2ECC71] flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Mastered
+                      <span className="text-[#10B981] font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Mastered
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <h4 className="text-xs font-bold text-neutral-100">{card.front}</h4>
-                    <p className="text-xs text-neutral-300 mt-1.5 leading-relaxed bg-neutral-950 p-2.5 rounded-xl border border-[#34495E]/40 whitespace-pre-line">
-                      {card.back}
+                    <h4 className="text-sm font-bold text-[#F9FAFB]">
+                      {cleanPromptArtifacts(card.front)}
+                    </h4>
+                    <p className="text-xs text-[#9CA3AF] mt-2 leading-relaxed bg-[#0D0F12] p-3 rounded-xl border border-[#262B36] whitespace-pre-line">
+                      {cleanPromptArtifacts(card.back)}
                     </p>
                   </div>
 
-                  {/* 4 Choices preview in list mode */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-semibold text-neutral-400">Available Options:</span>
-                    <div className="grid grid-cols-1 gap-1">
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-bold text-[#7C3AED] uppercase tracking-wider block">
+                      Options
+                    </span>
+                    <div className="grid grid-cols-1 gap-1.5">
                       {cardOpts.options.map((opt, oIdx) => (
                         <div
                           key={oIdx}
-                          className={`text-[11px] px-2.5 py-1 rounded-lg border ${
+                          className={`text-xs p-3 h-auto w-full text-left rounded-xl border leading-relaxed ${
                             oIdx === cardOpts.correctIdx
-                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/40 font-semibold'
-                              : 'bg-neutral-950/60 text-neutral-400 border-[#34495E]/30'
+                              ? 'bg-[#10B981]/15 text-[#F9FAFB] border-[#10B981]/50 font-semibold'
+                              : 'bg-[#0D0F12] text-[#9CA3AF] border-[#262B36]'
                           }`}
                         >
-                          {opt}
+                          {cleanPromptArtifacts(opt)}
                         </div>
                       ))}
                     </div>

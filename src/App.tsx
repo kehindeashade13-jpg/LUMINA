@@ -219,8 +219,8 @@ export function App() {
         onOpenSidebar={() => setIsSidebarOpen(true)}
       />
 
-      {/* Main Workspace Viewport with generous bottom clearance for FAB */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28 sm:pb-32 relative z-10">
+      {/* Main Workspace Viewport with extra bottom clearance (pb-36) for FAB */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-36 relative z-10">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-[#9CA3AF]">
             <Loader2 className="w-8 h-8 animate-spin text-[#7C3AED]" />

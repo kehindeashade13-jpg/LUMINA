@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { StudyMaterial, LuminaUser } from '../types/study';
 import { appStorage } from './storage';
+import { formatAuthorName } from '../utils/formatters';
 
 // Local storage keys
 const LOCAL_STORAGE_KEY = 'lumina_study_materials_cache';
@@ -81,7 +82,7 @@ export function isSupabaseConfigured(): boolean {
 
 function formatLuminaUser(supabaseUser: SupabaseAuthUser): LuminaUser {
   const metadata = supabaseUser.user_metadata || {};
-  const fullName =
+  const rawName =
     metadata.full_name ||
     metadata.name ||
     supabaseUser.email?.split('@')[0] ||
@@ -90,7 +91,7 @@ function formatLuminaUser(supabaseUser: SupabaseAuthUser): LuminaUser {
   return {
     id: supabaseUser.id,
     email: supabaseUser.email || '',
-    fullName: fullName,
+    fullName: formatAuthorName(rawName),
   };
 }
 
@@ -261,7 +262,7 @@ export async function saveMaterialToDatabase(
   const materialWithUser: StudyMaterial = {
     ...material,
     userId: userId || material.userId,
-    authorName: authorName || material.authorName || 'Scholar',
+    authorName: formatAuthorName(authorName || material.authorName || 'Scholar'),
     isPublic: isPublicBool,
     lastAccessedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

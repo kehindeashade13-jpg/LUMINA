@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import {
   Plus,
-  Trash2,
-  Clock,
-  Layers,
-  HelpCircle,
-  BookOpen,
-  FileCheck,
   Search,
   Globe,
   Lock,
-  Check,
-  BookmarkPlus,
 } from 'lucide-react';
 import { StudyMaterial, LuminaUser } from '../types/study';
+import { DocumentCard } from './DocumentCard';
+import { calculateReadTime, formatAuthorName } from '../utils/formatters';
 
 interface DocumentsTabProps {
   materials: StudyMaterial[]; // Personal materials
@@ -70,7 +64,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-36">
       {/* Top Banner & Stats - Clean Solid #161922 Container */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-2xl bg-[#161922] border border-[#262B36]">
         <div>
@@ -158,7 +152,12 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
           {activeSection === 'my' ? (
             <>
               <span className="w-2 h-2 rounded-full bg-[#7C3AED] shrink-0" />
-              <span>Private documents accessible only to {user?.fullName || 'your account'}</span>
+              <span>
+                Private documents accessible only to{' '}
+                <span className="capitalize font-medium text-[#F9FAFB]">
+                  {formatAuthorName(user?.fullName)}
+                </span>
+              </span>
             </>
           ) : (
             <>
@@ -254,9 +253,10 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
               </p>
               <button
                 onClick={onOpenUploadModal}
-                className="mt-5 px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-sm"
+                className="mt-5 px-4 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white rounded-lg text-xs font-medium inline-flex items-center gap-1.5 transition shadow-sm"
               >
-                <Plus className="w-4 h-4" /> Share First Community Guide
+                <Plus className="w-4 h-4" />
+                <span>Share First Community Guide</span>
               </button>
             </>
           )}
@@ -268,153 +268,25 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
             const isMyDocument = mat.userId === user?.id;
 
             return (
-              <div
+              <DocumentCard
                 key={mat.id}
-                className={`flex flex-col justify-between p-5 rounded-2xl border transition group relative bg-[#161922] ${
-                  isActive
-                    ? 'border-[#7C3AED] ring-1 ring-[#7C3AED]/50 shadow-md'
-                    : 'border-[#262B36] hover:border-[#7C3AED]/70'
-                }`}
-              >
-                <div>
-                  {/* Top Metadata & Privacy Status */}
-                  <div className="flex items-center justify-between gap-2 mb-3 text-xs">
-                    <span className="font-semibold text-[#06B6D4] truncate">
-                      {mat.subject}
-                    </span>
-
-                    <div className="flex items-center gap-2 shrink-0 text-[11px] text-[#9CA3AF]">
-                      {mat.isPublic ? (
-                        <span className="inline-flex items-center gap-1 text-[#10B981] font-medium">
-                          <Globe className="w-3 h-3" /> Public
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[#9CA3AF] font-medium">
-                          <Lock className="w-3 h-3" /> Private
-                        </span>
-                      )}
-
-                      {isActive && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="inline-flex items-center gap-1 text-[#A78BFA] font-semibold">
-                            <FileCheck className="w-3 h-3" /> Active
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Title & Summary */}
-                  <h3 className="text-base font-bold text-[#F9FAFB] group-hover:text-[#A78BFA] transition line-clamp-2">
-                    {mat.title}
-                  </h3>
-
-                  {/* Author / Attribution */}
-                  {mat.authorName && (
-                    <p className="text-xs text-[#9CA3AF] mt-1 flex items-center gap-1">
-                      <span>By {mat.authorName}</span>
-                      {isMyDocument && <span className="text-[#A78BFA] font-semibold">(You)</span>}
-                    </p>
-                  )}
-
-                  <p className="text-xs text-[#9CA3AF] line-clamp-3 mt-2 leading-relaxed">
-                    {mat.summary}
-                  </p>
-
-                  {/* Metrics Bar with Cool Cyan (#06B6D4) and Mint (#10B981) Pill Badges */}
-                  <div className="flex flex-wrap items-center gap-2 py-3 my-3 border-y border-[#262B36] text-[11px] font-mono tabular-nums">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#0D0F12] text-[#9CA3AF] border border-[#262B36] font-medium">
-                      <Clock className="w-3 h-3 text-[#9CA3AF]" />
-                      {mat.estimatedReadTimeMinutes || 5}m read
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#06B6D4]/10 text-[#06B6D4] border border-[#06B6D4]/30 font-semibold">
-                      <Layers className="w-3 h-3" />
-                      {mat.flashcards?.length || 30} Cards
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/30 font-semibold">
-                      <HelpCircle className="w-3 h-3" />
-                      {mat.quiz?.length || 30} Quiz Qs
-                    </span>
-                  </div>
-                </div>
-
-                {/* Card Actions */}
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        onSelectMaterial(mat);
-                        onNavigateToTab('notes');
-                      }}
-                      className="px-3.5 py-1.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold transition shadow-sm whitespace-nowrap"
-                    >
-                      Study Notes
-                    </button>
-                    <button
-                      onClick={() => {
-                        onSelectMaterial(mat);
-                        onNavigateToTab('flashcards');
-                      }}
-                      className="px-3 py-1.5 bg-[#0D0F12] hover:bg-[#1E222D] text-[#F9FAFB] rounded-xl text-xs font-medium transition border border-[#262B36] whitespace-nowrap"
-                    >
-                      Cards
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-1">
-                    {!isMyDocument && (
-                      <button
-                        onClick={() => handleClone(mat)}
-                        title="Add copy to My Library"
-                        className="p-2 text-[#9CA3AF] hover:text-[#10B981] hover:bg-[#0D0F12] rounded-xl transition flex items-center gap-1 text-xs"
-                      >
-                        {clonedId === mat.id ? (
-                          <Check className="w-4 h-4 text-[#10B981]" />
-                        ) : (
-                          <BookmarkPlus className="w-4 h-4" />
-                        )}
-                      </button>
-                    )}
-
-                    {isMyDocument && (
-                      <button
-                        onClick={() => onTogglePrivacy(mat, !mat.isPublic)}
-                        title={mat.isPublic ? 'Make Private' : 'Make Public'}
-                        className={`p-2 rounded-xl transition ${
-                          mat.isPublic
-                            ? 'text-[#10B981] hover:bg-[#10B981]/10'
-                            : 'text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#0D0F12]'
-                        }`}
-                      >
-                        {mat.isPublic ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => setPreviewMaterial(mat)}
-                      title="Inspect extracted raw text"
-                      className="p-2 text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#0D0F12] rounded-xl transition"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                    </button>
-
-                    {isMyDocument && (
-                      <button
-                        onClick={() => onDeleteMaterial(mat.id)}
-                        title="Delete document"
-                        className="p-2 text-[#9CA3AF] hover:text-red-400 hover:bg-[#0D0F12] rounded-xl transition"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
+                material={mat}
+                isActive={isActive}
+                isMyDocument={isMyDocument}
+                isCloned={clonedId === mat.id}
+                onOpenStudySuite={(selected) => {
+                  onSelectMaterial(selected);
+                  onNavigateToTab('notes');
+                }}
+                onTogglePrivacy={onTogglePrivacy}
+                onClone={handleClone}
+                onPreviewRawText={(selected) => setPreviewMaterial(selected)}
+                onDelete={onDeleteMaterial}
+              />
             );
           })}
 
-          {/* Dedicated Upload New Document Dropzone Card in Grid (Clear of floating overlaps) */}
+          {/* Dedicated Upload New Document Dropzone Card in Grid */}
           <button
             type="button"
             onClick={onOpenUploadModal}
@@ -438,21 +310,25 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="relative w-full max-w-2xl bg-[#161922] border border-[#262B36] rounded-2xl shadow-2xl p-6 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-[#262B36]">
-              <div>
+              <div className="min-w-0 pr-4">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-base font-bold text-[#F9FAFB]">{previewMaterial.title}</h3>
-                  <span className="text-xs text-[#9CA3AF]">
+                  <h3 className="text-base font-bold text-[#F9FAFB] line-clamp-2 break-words">
+                    {previewMaterial.title}
+                  </h3>
+                  <span className="text-xs text-[#9CA3AF] shrink-0">
                     · {previewMaterial.isPublic ? 'Public' : 'Private'}
                   </span>
                 </div>
                 <p className="text-xs text-[#9CA3AF] mt-0.5 tabular-nums">
-                  Extracted Raw Text ({previewMaterial.rawText.split(/\s+/).length} words)
-                  {previewMaterial.authorName && ` · By ${previewMaterial.authorName}`}
+                  {calculateReadTime(previewMaterial.rawText, previewMaterial)} (
+                  {previewMaterial.rawText ? previewMaterial.rawText.trim().split(/\s+/).filter(Boolean).length : 0}{' '}
+                  words)
+                  {previewMaterial.authorName && ` · By ${formatAuthorName(previewMaterial.authorName)}`}
                 </p>
               </div>
               <button
                 onClick={() => setPreviewMaterial(null)}
-                className="text-[#9CA3AF] hover:text-[#F9FAFB] p-1.5 rounded-xl hover:bg-[#0D0F12] transition"
+                className="text-[#9CA3AF] hover:text-[#F9FAFB] p-1.5 rounded-xl hover:bg-[#0D0F12] transition shrink-0"
               >
                 ✕
               </button>

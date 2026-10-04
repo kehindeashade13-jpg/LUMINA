@@ -7,6 +7,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { StudyMaterial, ActiveTab } from '../types/study';
+import { calculateReadTime, formatAuthorName } from '../utils/formatters';
 
 interface RecentDocumentsSectionProps {
   materials: StudyMaterial[];
@@ -77,10 +78,16 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {recentMaterials.map((mat) => {
           const isActive = currentMaterial?.id === mat.id;
+          const readTimeLabel = calculateReadTime(mat.rawText, mat);
+          const formattedAuthor = formatAuthorName(mat.authorName);
+
           return (
             <div
               key={mat.id}
-              onClick={() => onSelectMaterial(mat)}
+              onClick={() => {
+                onSelectMaterial(mat);
+                onNavigateToTab('notes');
+              }}
               className={`group relative p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between bg-[#161922] ${
                 isActive
                   ? 'border-[#7C3AED] ring-1 ring-[#7C3AED]/50 shadow-md'
@@ -98,10 +105,20 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
                   </span>
                 </div>
 
-                {/* Title */}
-                <h3 className="text-sm font-bold text-[#F9FAFB] group-hover:text-[#A78BFA] transition line-clamp-1">
+                {/* Title (max 2 lines with line-clamp-2) */}
+                <h3
+                  title={mat.title}
+                  className="text-sm font-bold text-[#F9FAFB] group-hover:text-[#A78BFA] transition line-clamp-2 break-words overflow-hidden leading-snug"
+                >
                   {mat.title}
                 </h3>
+
+                {/* Author */}
+                {mat.authorName && (
+                  <p className="text-[11px] text-[#9CA3AF] mt-1">
+                    By <span className="text-[#F9FAFB] font-medium capitalize">{formattedAuthor}</span>
+                  </p>
+                )}
 
                 {/* Summary Excerpt */}
                 <p className="text-xs text-[#9CA3AF] line-clamp-2 mt-1.5 leading-relaxed">
@@ -109,52 +126,49 @@ export const RecentDocumentsSection: React.FC<RecentDocumentsSectionProps> = ({
                 </p>
               </div>
 
-              {/* Metrics & Quick Actions */}
-              <div className="mt-4 pt-3 border-t border-[#262B36] flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 font-mono tabular-nums text-[11px]">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#06B6D4]/10 text-[#06B6D4] border border-[#06B6D4]/25 font-semibold">
-                    <Layers className="w-3 h-3" />
-                    {mat.flashcards.length}
+              <div>
+                {/* Single Inline Flex Row for Metadata Metrics */}
+                <div className="mt-3 pt-2.5 pb-2.5 border-t border-[#262B36] flex items-center flex-wrap gap-1.5 font-mono tabular-nums text-[11px] text-[#9CA3AF]">
+                  <span className="inline-flex items-center gap-1 text-[#F9FAFB] font-medium">
+                    <Clock className="w-3 h-3 text-[#06B6D4] shrink-0" />
+                    <span>{readTimeLabel}</span>
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#10B981]/10 text-[#10B981] border border-[#10B981]/25 font-semibold">
-                    <HelpCircle className="w-3 h-3" />
-                    {mat.quiz.length}
+                  <span aria-hidden="true" className="text-[#9CA3AF]/50">•</span>
+                  <span className="inline-flex items-center gap-1 text-[#06B6D4] font-medium">
+                    <Layers className="w-3 h-3 shrink-0" />
+                    <span>{mat.flashcards.length} Cards</span>
+                  </span>
+                  <span aria-hidden="true" className="text-[#9CA3AF]/50">•</span>
+                  <span className="inline-flex items-center gap-1 text-[#10B981] font-medium">
+                    <HelpCircle className="w-3 h-3 shrink-0" />
+                    <span>{mat.quiz.length} Quizzes</span>
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectMaterial(mat);
-                      onNavigateToTab('notes');
-                    }}
-                    className="px-2 py-1 rounded-lg bg-[#0D0F12] hover:bg-[#7C3AED] text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#262B36] hover:border-[#7C3AED] transition text-[11px] font-semibold"
-                  >
-                    Notes
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectMaterial(mat);
-                      onNavigateToTab('flashcards');
-                    }}
-                    className="px-2 py-1 rounded-lg bg-[#0D0F12] hover:bg-[#7C3AED] text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#262B36] hover:border-[#7C3AED] transition text-[11px] font-semibold"
-                  >
-                    Cards
-                  </button>
-                </div>
+                {/* Consolidated Primary CTA */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectMaterial(mat);
+                    onNavigateToTab('notes');
+                  }}
+                  className="w-full py-2 px-3 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition shadow-sm"
+                >
+                  <span>Open Study Suite</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           );
         })}
 
-        {/* Upload New Document Dropzone Tile (Clear of floating overlaps) */}
+        {/* Upload New Document Dropzone Tile */}
         {recentMaterials.length < 4 && (
           <button
             type="button"
             onClick={onOpenUploadModal}
-            className="p-5 rounded-2xl border-2 border-dashed border-[#262B36] hover:border-[#7C3AED] bg-[#161922] hover:bg-[#1C202B] cursor-pointer transition flex flex-col items-center justify-center text-center gap-2.5 group min-h-[148px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C3AED]"
+            className="p-5 rounded-2xl border-2 border-dashed border-[#262B36] hover:border-[#7C3AED] bg-[#161922] hover:bg-[#1C202B] cursor-pointer transition flex flex-col items-center justify-center text-center gap-2.5 group min-h-[160px] w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7C3AED]"
           >
             <div className="p-2.5 rounded-xl bg-[#0D0F12] border border-[#262B36] text-[#06B6D4] group-hover:bg-[#7C3AED] group-hover:text-[#F9FAFB] group-hover:border-[#7C3AED] transition">
               <Plus className="w-5 h-5" />

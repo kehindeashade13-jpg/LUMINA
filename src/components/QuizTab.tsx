@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { QuizQuestion, StudyMaterial } from '../types/study';
+import { cleanPromptArtifacts } from '../utils/formatters';
 
 interface QuizTabProps {
   material: StudyMaterial | null;
@@ -56,7 +57,7 @@ export const QuizTab: React.FC<QuizTabProps> = ({
         particleCount: 80,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#8E44AD', '#F1C40F', '#2ECC71', '#34495E'],
+        colors: ['#7C3AED', '#06B6D4', '#10B981'],
       });
     } catch {
       // Confetti fallback
@@ -119,15 +120,15 @@ export const QuizTab: React.FC<QuizTabProps> = ({
 
   if (!material || material.quiz.length === 0) {
     return (
-      <div className="p-16 text-center border border-dashed border-[#34495E]/60 rounded-2xl bg-neutral-950/50">
-        <Sparkles className="w-10 h-10 text-[#F1C40F] mx-auto mb-3" />
-        <h3 className="text-base font-bold text-neutral-100">No documents uploaded yet</h3>
-        <p className="text-xs text-neutral-400 mt-1 max-w-sm mx-auto">
+      <div className="p-16 text-center border-2 border-dashed border-[#262B36] rounded-2xl bg-[#161922]">
+        <Sparkles className="w-10 h-10 text-[#7C3AED] mx-auto mb-3" />
+        <h3 className="text-base font-bold text-[#F9FAFB]">No documents uploaded yet</h3>
+        <p className="text-xs text-[#9CA3AF] mt-1 max-w-sm mx-auto">
           Upload a study document to automatically generate adaptive practice quizzes with detailed explanations.
         </p>
         <button
           onClick={() => onNavigateToTab('documents')}
-          className="mt-4 px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-lg shadow-[#8E44AD]/25"
+          className="mt-4 px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-semibold inline-flex items-center gap-2 transition shadow-sm"
         >
           Upload Document
         </button>
@@ -138,78 +139,74 @@ export const QuizTab: React.FC<QuizTabProps> = ({
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-12">
       {/* Quiz Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-neutral-900 border border-[#34495E]/60 shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-[#161922] border border-[#262B36]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[#8E44AD]/15 text-[#a569bd] border border-[#8E44AD]/30">
+          <div className="flex items-center gap-2 text-xs text-[#9CA3AF] font-mono tabular-nums">
+            <span className="font-sans font-semibold text-[#06B6D4]">
               {material.subject}
             </span>
-            <span className="text-xs text-neutral-400">
+            <span aria-hidden="true">•</span>
+            <span>
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
           </div>
-          <h2 className="text-lg font-bold text-neutral-100 mt-1">Adaptive Mastery Quiz</h2>
+          <h2 className="text-lg font-bold text-[#F9FAFB] mt-1">Adaptive Mastery Quiz</h2>
         </div>
 
         <button
           onClick={handleRetakeFull}
-          className="px-3 py-1.5 bg-neutral-950 hover:bg-neutral-800 border border-[#34495E]/60 rounded-xl text-xs font-semibold text-neutral-300 hover:text-white flex items-center gap-1.5 transition self-start sm:self-auto"
+          className="px-3.5 py-2 bg-[#0D0F12] hover:bg-[#1E222D] border border-[#262B36] rounded-xl text-xs font-semibold text-[#F9FAFB] flex items-center gap-1.5 transition self-start sm:self-auto"
         >
-          <RotateCcw className="w-3.5 h-3.5 text-[#F1C40F]" /> Retake Quiz
+          <RotateCcw className="w-3.5 h-3.5 text-[#06B6D4]" />
+          <span>Retake Quiz</span>
         </button>
       </div>
 
       {/* Progress Bar */}
-      <div className="w-full bg-neutral-900 h-2.5 rounded-full overflow-hidden border border-[#34495E]/50">
+      <div className="w-full bg-[#161922] h-2 rounded-full overflow-hidden border border-[#262B36]">
         <div
-          className="bg-gradient-to-r from-[#8E44AD] via-[#F1C40F] to-[#2ECC71] h-full transition-all duration-300"
+          className="bg-[#7C3AED] h-full transition-all duration-300"
           style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
         />
       </div>
 
       {!isQuizCompleted ? (
-        /* Active Question Card */
-        <div className="p-6 sm:p-8 rounded-3xl bg-neutral-900 border border-[#34495E]/80 shadow-2xl space-y-6 animate-in fade-in duration-150">
+        /* Active Question Card: Outer rounded-2xl (16px) */
+        <div className="p-6 sm:p-8 rounded-2xl bg-[#161922] border border-[#262B36] space-y-6 animate-in fade-in duration-150">
           {/* Question Header */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <span className="text-xs font-mono font-bold text-[#a569bd] uppercase tracking-wider">
+              <span className="text-xs font-mono tabular-nums font-bold text-[#7C3AED] uppercase tracking-wider">
                 Question #{currentQuestionIndex + 1}
               </span>
-              <h3 className="text-base sm:text-lg font-bold text-neutral-100 mt-1.5 leading-snug">
-                {currentQ?.question}
+              <h3 className="text-base sm:text-lg font-bold text-[#F9FAFB] mt-1.5 leading-snug">
+                {cleanPromptArtifacts(currentQ?.question)}
               </h3>
             </div>
             {currentQ?.difficulty && (
-              <span
-                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border shrink-0 ${
-                  currentQ.difficulty === 'easy'
-                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/40'
-                    : currentQ.difficulty === 'hard'
-                    ? 'bg-rose-950/60 text-rose-400 border-rose-800/40'
-                    : 'bg-amber-950/60 text-[#F1C40F] border-amber-800/40'
-                }`}
-              >
+              <span className="text-xs font-medium capitalize text-[#9CA3AF] shrink-0">
                 {currentQ.difficulty}
               </span>
             )}
           </div>
 
-          {/* Options Grid */}
+          {/* Options Grid: Auto-height (p-4 h-auto w-full text-left) with concentric rounded-xl (12px) */}
           <div className="space-y-2.5">
             {currentQ?.options.map((option, idx) => {
               const isSelected = selectedOption === idx;
               const isCorrect = idx === currentQ.correctAnswerIndex;
 
-              let btnStyle = 'bg-neutral-950 border-[#34495E]/70 hover:border-[#8E44AD] text-neutral-200';
+              let btnStyle =
+                'bg-[#0D0F12] border-[#262B36] hover:border-[#7C3AED] hover:bg-[#1C202B] text-[#F9FAFB]';
 
               if (isAnswerSubmitted) {
                 if (isCorrect) {
-                  btnStyle = 'bg-emerald-950/80 border-[#2ECC71] text-emerald-100 shadow-lg shadow-emerald-900/30';
+                  btnStyle =
+                    'bg-[#10B981]/15 border-[#10B981] text-[#F9FAFB] ring-1 ring-[#10B981]/40';
                 } else if (isSelected && !isCorrect) {
-                  btnStyle = 'bg-rose-950/80 border-rose-600 text-rose-100';
+                  btnStyle = 'bg-rose-950/60 border-rose-500 text-rose-100';
                 } else {
-                  btnStyle = 'bg-neutral-950 opacity-40 border-neutral-800 text-neutral-500';
+                  btnStyle = 'bg-[#0D0F12] opacity-45 border-[#262B36] text-[#9CA3AF]';
                 }
               }
 
@@ -218,14 +215,16 @@ export const QuizTab: React.FC<QuizTabProps> = ({
                   key={idx}
                   onClick={() => handleSelectOption(idx)}
                   disabled={isAnswerSubmitted}
-                  className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm font-medium transition flex items-center justify-between gap-3 ${btnStyle}`}
+                  className={`p-4 h-auto w-full text-left rounded-xl border text-xs sm:text-sm font-medium transition flex items-start justify-between gap-3 ${btnStyle}`}
                 >
-                  <span className="leading-relaxed">{option}</span>
+                  <span className="leading-relaxed whitespace-normal break-words flex-1">
+                    {cleanPromptArtifacts(option)}
+                  </span>
                   {isAnswerSubmitted && isCorrect && (
-                    <CheckCircle2 className="w-5 h-5 text-[#2ECC71] shrink-0" />
+                    <CheckCircle2 className="w-5 h-5 text-[#10B981] shrink-0 mt-0.5" />
                   )}
                   {isAnswerSubmitted && isSelected && !isCorrect && (
-                    <XCircle className="w-5 h-5 text-rose-400 shrink-0" />
+                    <XCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
                   )}
                 </button>
               );
@@ -235,29 +234,31 @@ export const QuizTab: React.FC<QuizTabProps> = ({
           {/* Explanation Section */}
           {isAnswerSubmitted && (
             <div
-              className={`p-4 rounded-2xl border text-xs leading-relaxed animate-in fade-in duration-200 ${
+              className={`p-4 rounded-xl border text-xs leading-relaxed animate-in fade-in duration-150 ${
                 selectedOption === currentQ?.correctAnswerIndex
-                  ? 'bg-emerald-950/40 border-emerald-800/50 text-emerald-200'
-                  : 'bg-rose-950/30 border-rose-800/50 text-rose-200'
+                  ? 'bg-[#10B981]/10 border-[#10B981]/40 text-[#F9FAFB]'
+                  : 'bg-rose-950/30 border-rose-800/50 text-rose-100'
               }`}
             >
-              <strong className="block font-bold text-white mb-1">
-                {selectedOption === currentQ?.correctAnswerIndex ? '✓ Correct Answer!' : '✗ Incorrect'}
+              <strong className="block font-bold text-[#F9FAFB] mb-1">
+                {selectedOption === currentQ?.correctAnswerIndex ? '✓ Correct Answer' : '✗ Incorrect'}
               </strong>
-              <span>{currentQ?.explanation}</span>
+              <span className="text-[#9CA3AF]">
+                {cleanPromptArtifacts(currentQ?.explanation)}
+              </span>
             </div>
           )}
 
           {/* Footer Action */}
-          <div className="flex items-center justify-between pt-4 border-t border-[#34495E]/50">
-            <span className="text-xs text-neutral-400 font-mono">
-              Score: {score} / {currentQuestionIndex + (isAnswerSubmitted ? 1 : 0)}
+          <div className="flex items-center justify-between pt-4 border-t border-[#262B36]">
+            <span className="text-xs text-[#9CA3AF] font-mono tabular-nums">
+              Score: <strong className="text-[#F9FAFB]">{score}</strong> / {currentQuestionIndex + (isAnswerSubmitted ? 1 : 0)}
             </span>
 
             {isAnswerSubmitted && (
               <button
                 onClick={handleNextQuestion}
-                className="px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-[#8E44AD]/30 transition active:scale-95"
+                className="px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition active:scale-95"
               >
                 <span>{currentQuestionIndex + 1 < questions.length ? 'Next Question' : 'Complete Quiz'}</span>
                 <ArrowRight className="w-4 h-4" />
@@ -267,47 +268,47 @@ export const QuizTab: React.FC<QuizTabProps> = ({
         </div>
       ) : (
         /* Results Card */
-        <div className="p-8 sm:p-10 rounded-3xl bg-neutral-900 border border-[#34495E]/80 shadow-2xl text-center space-y-6 animate-in zoom-in-95 duration-200">
-          <div className="p-4 rounded-3xl bg-[#8E44AD]/15 border border-[#8E44AD]/30 text-[#F1C40F] w-fit mx-auto shadow-xl">
+        <div className="p-8 sm:p-10 rounded-2xl bg-[#161922] border border-[#262B36] text-center space-y-6 animate-in zoom-in-95 duration-200">
+          <div className="p-4 rounded-2xl bg-[#0D0F12] border border-[#262B36] text-[#06B6D4] w-fit mx-auto">
             <Trophy className="w-12 h-12" />
           </div>
 
           <div>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#8E44AD]/20 text-[#a569bd] border border-[#8E44AD]/40">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#7C3AED]">
               Quiz Completed
             </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-100 mt-2">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#F9FAFB] mt-1.5">
               {percentage >= 80 ? 'Exceptional Mastery!' : percentage >= 50 ? 'Great Practice!' : 'Keep Studying!'}
             </h2>
-            <p className="text-xs text-neutral-400 mt-1 max-w-md mx-auto">
+            <p className="text-xs text-[#9CA3AF] mt-1 max-w-md mx-auto">
               You correctly answered {score} out of {questions.length} questions on {material.title}.
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-neutral-950 border border-[#34495E]/60 max-w-sm mx-auto flex items-center justify-around">
+          <div className="p-6 rounded-xl bg-[#0D0F12] border border-[#262B36] max-w-sm mx-auto flex items-center justify-around">
             <div>
-              <span className="text-3xl font-extrabold text-[#2ECC71] font-mono">{percentage}%</span>
-              <p className="text-[11px] text-neutral-400 uppercase font-semibold mt-0.5">Accuracy</p>
+              <span className="text-3xl font-extrabold text-[#10B981] font-mono tabular-nums">{percentage}%</span>
+              <p className="text-[11px] text-[#9CA3AF] uppercase font-semibold mt-0.5">Accuracy</p>
             </div>
-            <div className="h-8 w-px bg-[#34495E]" />
+            <div className="h-8 w-px bg-[#262B36]" />
             <div>
-              <span className="text-3xl font-extrabold text-[#F1C40F] font-mono">{score}/{questions.length}</span>
-              <p className="text-[11px] text-neutral-400 uppercase font-semibold mt-0.5">Correct</p>
+              <span className="text-3xl font-extrabold text-[#06B6D4] font-mono tabular-nums">{score}/{questions.length}</span>
+              <p className="text-[11px] text-[#9CA3AF] uppercase font-semibold mt-0.5">Correct</p>
             </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
               onClick={handleRetakeFull}
-              className="w-full sm:w-auto px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition border border-[#34495E]/60"
+              className="w-full sm:w-auto px-5 py-2.5 bg-[#0D0F12] hover:bg-[#1E222D] text-[#F9FAFB] rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition border border-[#262B36]"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-[#F1C40F]" /> Retake Full Quiz
+              <RotateCcw className="w-3.5 h-3.5 text-[#06B6D4]" /> Retake Full Quiz
             </button>
 
             {score < questions.length && (
               <button
                 onClick={handleRetakeMissed}
-                className="w-full sm:w-auto px-5 py-2.5 bg-[#8E44AD] hover:bg-[#7D3C98] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#8E44AD]/30 transition"
+                className="w-full sm:w-auto px-5 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition"
               >
                 <span>Practice Missed ({questions.length - score})</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -316,9 +317,9 @@ export const QuizTab: React.FC<QuizTabProps> = ({
 
             <button
               onClick={() => onNavigateToTab('notes')}
-              className="w-full sm:w-auto px-5 py-2.5 bg-neutral-950 hover:bg-neutral-800 text-neutral-300 rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition border border-[#34495E]/50"
+              className="w-full sm:w-auto px-5 py-2.5 bg-[#0D0F12] hover:bg-[#1E222D] text-[#9CA3AF] hover:text-[#F9FAFB] rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition border border-[#262B36]"
             >
-              <BookOpen className="w-3.5 h-3.5 text-[#a569bd]" /> Review Notes
+              <BookOpen className="w-3.5 h-3.5 text-[#A78BFA]" /> Review Notes
             </button>
           </div>
         </div>

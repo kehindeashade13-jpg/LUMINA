@@ -1,5 +1,17 @@
 // Initialize runtime environment & capture PWA install prompt if supported
 if (typeof window !== 'undefined') {
+  // In dev mode with HMR disabled, unregister any stale dev service workers that attempt ws.send
+  if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister().catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     (window as unknown as { deferredPWAInstallPrompt?: unknown }).deferredPWAInstallPrompt = e;

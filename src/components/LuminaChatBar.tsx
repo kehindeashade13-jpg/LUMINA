@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Send,
-  ChevronDown,
   RotateCcw,
   Copy,
   Check,
@@ -17,6 +16,7 @@ import {
 import { ChatMessage, StudyMaterial } from '../types/study';
 import { askLuminaChat } from '../services/gemini';
 import LuminaLogo from './LuminaLogo';
+import { truncateTitle } from '../utils/formatters';
 
 interface LuminaChatBarProps {
   material: StudyMaterial | null;
@@ -33,14 +33,15 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset with an intelligent welcoming message on material change
+  // Reset with a clean, badge-formatted welcoming message on material change
   useEffect(() => {
     if (material) {
+      const cleanSubj = (material.subject || 'Document Studies').replace(/^\(\*|\*\)$/g, '').replace(/\*/g, '').trim();
       setMessages([
         {
           id: `welcome_${material.id}_${Date.now()}`,
           role: 'assistant',
-          content: `Hello! I am **Lumina AI**, your study tutor for **"${material.title}"** (*${material.subject}*).\n\nI have indexed the full document text, lesson modules, flashcards, practice questions, and quizzes. You can ask me:\n• Concept explanations, step-by-step breakdowns or analogies\n• Clarifications on any tricky option or practice question\n• General knowledge and external connections to this topic\n\nHow can I support your study flow today?`,
+          content: `Hello! I am **Lumina AI**, your study tutor for **"${truncateTitle(material.title, 32)}"** [badge:${cleanSubj}].\n\nI have indexed the full document text, lesson modules, flashcards, practice questions, and quizzes. You can ask me:\n• Concept explanations, step-by-step breakdowns, or analogies\n• Clarifications on any tricky option or practice question\n• General knowledge and external connections to this topic\n\nHow can I support your study flow today?`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -49,7 +50,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         {
           id: `welcome_empty_${Date.now()}`,
           role: 'assistant',
-          content: `Welcome to **Lumina AI**! I am your interactive academic companion.\n\nAsk me any general study question, request active-recall strategies, or upload a document to unlock deep, context-aware analysis!`,
+          content: `Welcome to **Lumina AI**! I am your interactive academic companion.\n\nAsk me any general study question, request active-recall strategies, or upload a document to unlock deep, context-aware analysis.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -100,7 +101,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
       const errorMsg: ChatMessage = {
         id: 'reply_' + Date.now(),
         role: 'assistant',
-        content: `I ran into an issue connecting with the model. If you're studying **${material?.title || 'this topic'}**, foundational principles anchor downstream effects. Feel free to rephrase or ask again!`,
+        content: `I ran into an issue connecting with the model. If you're studying **${truncateTitle(material?.title, 24)}**, foundational principles anchor downstream effects. Feel free to rephrase or ask again!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages((prev) => [...prev, errorMsg]);
@@ -117,12 +118,13 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
   };
 
   const handleClearChat = () => {
+    const cleanSubj = (material?.subject || 'Document Studies').replace(/^\(\*|\*\)$/g, '').replace(/\*/g, '').trim();
     setMessages([
       {
         id: 'reset_' + Date.now(),
         role: 'assistant',
         content: material
-          ? `Chat history cleared. Ready for your questions on **"${material.title}"** or any general study topic!`
+          ? `Chat history cleared. Ready for your questions on **"${truncateTitle(material.title, 28)}"** [badge:${cleanSubj}]!`
           : `Chat cleared. Ask me anything!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
@@ -130,16 +132,18 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
   };
 
   const handleCopyMessage = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text.replace(/\[badge:(.*?)\]/g, '($1)'));
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Quick suggestion pills with truncated document titles
+  const shortDocTitle = material ? truncateTitle(material.title, 18) : '';
   const suggestions = material
     ? [
-        `Summarize the key mechanisms in "${material.title}"`,
+        `Summarize "${shortDocTitle}"`,
         `Give me a real-world analogy for the core concept`,
-        `Explain how to answer the toughest practice question`,
+        `Explain the toughest practice question`,
         `Explain the most difficult part simply`,
       ]
     : [
@@ -147,6 +151,43 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         `How do I study complex academic papers efficiently?`,
         `Explain the difference between recall and recognition`,
       ];
+
+  // Clean inline markdown parser: strips literal (*Subject*) or [badge:Subject] into a styled badge, and renders **bold** / *italic*
+  const renderInlineStyles = (text: string) => {
+    // Normalize any raw (*Subject*) into [badge:Subject]
+    const normalized = text.replace(/\(\*([^*]+)\*\)/g, '[badge:$1]');
+    const tokenRegex = /(\[badge:[^\]]+\]|\*\*[^*]+\*\*|\*[^*]+\*)/g;
+    const parts = normalized.split(tokenRegex);
+
+    return parts.map((part, i) => {
+      if (part.startsWith('[badge:') && part.endsWith(']')) {
+        const badgeText = part.slice(7, -1).trim();
+        return (
+          <span
+            key={i}
+            className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#06B6D4]/15 text-[#06B6D4] border border-[#06B6D4]/30 text-[11px] font-semibold mx-1 align-baseline"
+          >
+            {badgeText}
+          </span>
+        );
+      }
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} className="font-bold text-[#F9FAFB]">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+        return (
+          <span key={i} className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#7C3AED]/15 text-[#A78BFA] text-[11px] font-medium mx-0.5">
+            {part.slice(1, -1)}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
 
   const renderFormattedContent = (content: string) => {
     const paragraphs = content.split('\n');
@@ -157,7 +198,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
 
           if (line.startsWith('### ')) {
             return (
-              <h4 key={idx} className="font-bold text-[#06B6D4] text-sm mt-2 mb-1">
+              <h4 key={idx} className="font-bold text-[#7C3AED] uppercase tracking-wider text-xs mt-2 mb-1">
                 {line.replace('### ', '')}
               </h4>
             );
@@ -179,27 +220,24 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
     );
   };
 
-  const renderInlineStyles = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return (
-          <strong key={i} className="font-bold text-[#F9FAFB]">
-            {part.slice(2, -2)}
-          </strong>
-        );
-      }
-      return part;
-    });
-  };
-
   return (
     <>
-      {/* Floating Expanded Chat Window */}
+      {/* Dark Backdrop Overlay when Chat Modal is Open */}
       {isOpen && (
         <div
-          className={`fixed bottom-20 right-4 sm:right-5 z-40 w-[calc(100vw-2rem)] sm:w-[440px] bg-[#161922] border border-[#262B36] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 transition-all ${
-            isExpandedFull ? 'h-[82vh] sm:w-[580px]' : 'h-[500px]'
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+        />
+      )}
+
+      {/* Floating Expanded Chat Modal */}
+      {isOpen && (
+        <div
+          role="dialog"
+          aria-label="Lumina Study Tutor Chat"
+          className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[440px] bg-[#161922] border border-[#262B36] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 transition-all ${
+            isExpandedFull ? 'h-[85vh] sm:w-[580px]' : 'h-[520px] max-h-[82vh]'
           }`}
         >
           {/* Top Chat Bar Header */}
@@ -209,12 +247,12 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-xs font-bold text-[#F9FAFB]">Lumina Tutor</h3>
-                  <span className="text-[10px] font-semibold text-[#10B981]">
-                    · Active
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30">
+                    Online
                   </span>
                 </div>
                 <p className="text-[11px] text-[#9CA3AF] truncate">
-                  {material ? `Context: ${material.title}` : 'General Academic Knowledge'}
+                  {material ? `Context: ${truncateTitle(material.title, 26)}` : 'General Academic Knowledge'}
                 </p>
               </div>
             </div>
@@ -237,22 +275,25 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
               <button
                 onClick={() => setIsOpen(false)}
                 title="Close chat"
+                aria-label="Close chat"
                 className="p-1.5 text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#161922] rounded-lg transition"
               >
-                <ChevronDown className="w-4 h-4" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Context Banner */}
           {material && (
-            <div className="px-4 py-1.5 bg-[#0D0F12]/60 border-b border-[#262B36] flex items-center justify-between text-[11px] text-[#9CA3AF]">
-              <span className="flex items-center gap-1.5 truncate">
-                <BookOpen className="w-3 h-3 text-[#06B6D4] shrink-0" />
-                <span className="truncate text-[#F9FAFB]">{material.title}</span>
+            <div className="px-4 py-2 bg-[#0D0F12]/60 border-b border-[#262B36] flex items-center justify-between gap-2 text-[11px] text-[#9CA3AF]">
+              <span className="flex items-center gap-1.5 min-w-0">
+                <BookOpen className="w-3.5 h-3.5 text-[#06B6D4] shrink-0" />
+                <span className="truncate text-[#F9FAFB] font-medium">
+                  {truncateTitle(material.title, 28)}
+                </span>
               </span>
-              <span className="text-[10px] text-[#10B981] shrink-0 ml-2 font-mono">
-                Indexed
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-[#06B6D4]/15 text-[#06B6D4] border border-[#06B6D4]/30 text-[10px] font-semibold shrink-0">
+                {material.subject || 'Document Studies'}
               </span>
             </div>
           )}
@@ -341,7 +382,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
             ))}
           </div>
 
-          {/* Input Box */}
+          {/* Input Box with Clean Truncated Placeholder */}
           <div className="p-3 border-t border-[#262B36] bg-[#161922]">
             <div className="flex items-center gap-2 bg-[#0D0F12] border border-[#262B36] rounded-xl px-3 py-1.5 focus-within:border-[#7C3AED] transition">
               <input
@@ -349,7 +390,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
                 type="text"
                 placeholder={
                   material
-                    ? `Ask about "${material.title}"...`
+                    ? `Ask about "${truncateTitle(material.title, 18)}"...`
                     : 'Ask a study question...'
                 }
                 value={inputQuery}
@@ -370,21 +411,19 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         </div>
       )}
 
-      {/* Strictly Anchored Bottom-Right FAB (Compact & Non-Overlapping) */}
-      <div className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-40 pointer-events-auto">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          aria-label={isOpen ? 'Close Study Tutor' : 'Open Study Tutor'}
-          title={isOpen ? 'Close Study Tutor' : 'Ask Study Tutor'}
-          className="flex items-center justify-center w-12 h-12 rounded-2xl bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] border border-[#262B36] shadow-xl transition-transform duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4]"
-        >
-          {isOpen ? (
-            <X className="w-5 h-5" />
-          ) : (
+      {/* Floating Toggle Button — Hidden completely when Chat Modal is Open */}
+      {!isOpen && (
+        <div className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-40 pointer-events-auto">
+          <button
+            onClick={() => setIsOpen(true)}
+            aria-label="Open Study Tutor"
+            title="Ask Study Tutor"
+            className="flex items-center justify-center w-12 h-12 rounded-2xl bg-[#7C3AED] hover:bg-[#6D28D9] text-[#F9FAFB] border border-[#262B36] shadow-xl transition-transform duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4]"
+          >
             <MessageSquare className="w-5 h-5" />
-          )}
-        </button>
-      </div>
+          </button>
+        </div>
+      )}
     </>
   );
 };
