@@ -14,12 +14,25 @@ export interface SupabaseConfig {
   anonKey: string;
 }
 
+export function isValidUrl(urlStr: string): boolean {
+  if (!urlStr || typeof urlStr !== 'string') return false;
+  try {
+    const parsed = new URL(urlStr.trim());
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      !urlStr.includes('your-project')
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Get configured credentials from env or user local override
 export function getSupabaseCredentials(): SupabaseConfig {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string) || '';
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
 
-  if (envUrl && envKey && !envUrl.includes('your-project')) {
+  if (isValidUrl(envUrl) && envKey && !envKey.includes('your-anon-key')) {
     return { url: envUrl.trim(), anonKey: envKey.trim() };
   }
 
@@ -28,12 +41,12 @@ export function getSupabaseCredentials(): SupabaseConfig {
     const saved = appStorage.getSync(CONFIG_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed.url && parsed.anonKey) {
+      if (isValidUrl(parsed.url) && parsed.anonKey) {
         return { url: parsed.url.trim(), anonKey: parsed.anonKey.trim() };
       }
     }
   } catch (e) {
-    console.error('Failed to read custom supabase config', e);
+    console.warn('Failed to read custom supabase config', e);
   }
 
   return { url: envUrl, anonKey: envKey };
@@ -48,7 +61,7 @@ let clientInstance: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
   const creds = getSupabaseCredentials();
-  if (!creds.url || !creds.anonKey || creds.url.includes('your-project')) {
+  if (!creds.url || !creds.anonKey || !isValidUrl(creds.url) || creds.anonKey.includes('your-anon-key')) {
     return null;
   }
 
@@ -62,7 +75,7 @@ export function getSupabaseClient(): SupabaseClient | null {
         },
       });
     } catch (err) {
-      console.error('Failed to initialize Supabase client:', err);
+      console.warn('Failed to initialize Supabase client:', err);
       return null;
     }
   }
@@ -71,7 +84,49 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 export function isSupabaseConfigured(): boolean {
   const creds = getSupabaseCredentials();
-  return Boolean(creds.url && creds.anonKey && !creds.url.includes('your-project'));
+  return Boolean(isValidUrl(creds.url) && creds.anonKey && !creds.anonKey.includes('your-anon-key'));
+}
+
+/**
+ * Helper to identify network/CORS/DNS/offline fetch failures
+ * e.g. Safari "Load failed", Chrome "Failed to fetch", Firefox "NetworkError"
+ */
+export function isNetworkError(err: unknown): boolean {
+  if (!err) return false;
+  if (err instanceof Error) {
+    if (err.name === 'AuthRetryableFetchError' || err.name === 'TypeError') {
+      const msg = err.message.toLowerCase();
+      if (
+        msg.includes('load failed') ||
+        msg.includes('failed to fetch') ||
+        msg.includes('fetch') ||
+        msg.includes('network')
+      ) {
+        return true;
+      }
+    }
+  }
+
+  const str = (
+    typeof err === 'string'
+      ? err
+      : (err as any)?.message || (err as any)?.error_description || (err as any)?.name || ''
+  ).toLowerCase();
+
+  return (
+    str.includes('load failed') ||
+    str.includes('failed to fetch') ||
+    str.includes('networkerror') ||
+    str.includes('network error') ||
+    str.includes('network request failed') ||
+    str.includes('fetch failed') ||
+    str.includes('authretryablefetcherror') ||
+    str.includes('connection refused') ||
+    str.includes('econnrefused') ||
+    str.includes('enotfound') ||
+    str.includes('timeout') ||
+    str.includes('offline')
+  );
 }
 
 /**
@@ -79,6 +134,71 @@ export function isSupabaseConfigured(): boolean {
  * Supabase Authentication & User Session Management
  * ============================================================================
  */
+
+const LOCAL_USERS_REGISTRY_KEY = 'lumina_local_users_registry';
+
+interface LocalUserRecord {
+  id: string;
+  email: string;
+  fullName: string;
+  password?: string;
+}
+
+function getLocalUsersRegistry(): Record<string, LocalUserRecord> {
+  try {
+    const raw = appStorage.getSync(LOCAL_USERS_REGISTRY_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalUsersRegistry(registry: Record<string, LocalUserRecord>): void {
+  try {
+    appStorage.setSync(LOCAL_USERS_REGISTRY_KEY, JSON.stringify(registry));
+  } catch (e) {
+    console.warn('Failed to save local users registry:', e);
+  }
+}
+
+export function getOrCreateLocalUser(email: string, fullName?: string, password?: string): LuminaUser {
+  const cleanEmail = email.trim().toLowerCase();
+  const registry = getLocalUsersRegistry();
+  const existing = registry[cleanEmail];
+
+  if (existing) {
+    if (fullName && fullName.trim() && existing.fullName !== fullName.trim()) {
+      existing.fullName = formatAuthorName(fullName.trim());
+      if (password) existing.password = password;
+      saveLocalUsersRegistry(registry);
+    }
+    return {
+      id: existing.id,
+      email: existing.email,
+      fullName: existing.fullName,
+    };
+  }
+
+  const cleanName = formatAuthorName(
+    (fullName && fullName.trim()) || cleanEmail.split('@')[0] || 'Student'
+  );
+  const newId = 'user_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+  const newUserRecord: LocalUserRecord = {
+    id: newId,
+    email: cleanEmail,
+    fullName: cleanName,
+    password: password || '',
+  };
+
+  registry[cleanEmail] = newUserRecord;
+  saveLocalUsersRegistry(registry);
+
+  return {
+    id: newId,
+    email: cleanEmail,
+    fullName: cleanName,
+  };
+}
 
 function formatLuminaUser(supabaseUser: SupabaseAuthUser): LuminaUser {
   const metadata = supabaseUser.user_metadata || {};
@@ -99,14 +219,20 @@ export async function getCurrentUser(): Promise<LuminaUser | null> {
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        if (!isNetworkError(error)) {
+          console.warn('Supabase getUser error:', error.message);
+        }
+      } else if (data?.user) {
         const user = formatLuminaUser(data.user);
         appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
         return user;
       }
     } catch (e) {
-      console.warn('Error reading Supabase session:', e);
+      if (!isNetworkError(e)) {
+        console.warn('Error reading Supabase session:', e);
+      }
     }
   }
 
@@ -142,6 +268,12 @@ export async function signUpWithEmail(
       });
 
       if (error) {
+        if (isNetworkError(error)) {
+          console.warn('Supabase auth network unreachable, switching to local workspace session.');
+          const localUser = getOrCreateLocalUser(cleanEmail, cleanName, password);
+          appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
+          return { user: localUser };
+        }
         return { user: null, error: error.message };
       }
 
@@ -152,17 +284,19 @@ export async function signUpWithEmail(
         return { user };
       }
     } catch (err: unknown) {
+      if (isNetworkError(err)) {
+        console.warn('Supabase auth network unreachable (exception), switching to local workspace session.');
+        const localUser = getOrCreateLocalUser(cleanEmail, cleanName, password);
+        appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
+        return { user: localUser };
+      }
       const msg = err instanceof Error ? err.message : 'Sign up failed';
       return { user: null, error: msg };
     }
   }
 
   // Local sandbox auth fallback for instant testing without remote keys
-  const localUser: LuminaUser = {
-    id: 'user_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36),
-    email: cleanEmail,
-    fullName: cleanName,
-  };
+  const localUser = getOrCreateLocalUser(cleanEmail, cleanName, password);
   appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
   return { user: localUser };
 }
@@ -182,6 +316,12 @@ export async function signInWithEmail(
       });
 
       if (error) {
+        if (isNetworkError(error)) {
+          console.warn('Supabase auth network unreachable, authenticating via local workspace session.');
+          const localUser = getOrCreateLocalUser(cleanEmail, cleanEmail.split('@')[0], password);
+          appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
+          return { user: localUser };
+        }
         return { user: null, error: error.message };
       }
 
@@ -191,17 +331,19 @@ export async function signInWithEmail(
         return { user };
       }
     } catch (err: unknown) {
+      if (isNetworkError(err)) {
+        console.warn('Supabase auth network unreachable (exception), authenticating via local workspace session.');
+        const localUser = getOrCreateLocalUser(cleanEmail, cleanEmail.split('@')[0], password);
+        appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
+        return { user: localUser };
+      }
       const msg = err instanceof Error ? err.message : 'Sign in failed';
       return { user: null, error: msg };
     }
   }
 
   // Local sandbox auth fallback
-  const localUser: LuminaUser = {
-    id: 'user_' + Math.random().toString(36).substring(2, 9),
-    email: cleanEmail,
-    fullName: cleanEmail.split('@')[0] || 'Student',
-  };
+  const localUser = getOrCreateLocalUser(cleanEmail, cleanEmail.split('@')[0], password);
   appStorage.setSync(AUTH_USER_STORAGE_KEY, JSON.stringify(localUser));
   return { user: localUser };
 }

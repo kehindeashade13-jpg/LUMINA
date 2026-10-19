@@ -11,8 +11,9 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import { signUpWithEmail, signInWithEmail } from '../services/supabase';
+import { signUpWithEmail, signInWithEmail, isNetworkError, getOrCreateLocalUser } from '../services/supabase';
 import { LuminaUser } from '../types/study';
+import { appStorage } from '../services/storage';
 import LuminaLogo from './LuminaLogo';
 
 interface AuthModalProps {
@@ -53,20 +54,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
 
         const { user, error } = await signUpWithEmail(email, password, fullName);
-        if (error) throw error;
+        if (error) {
+          if (isNetworkError(error)) {
+            const fallbackUser = getOrCreateLocalUser(email, fullName, password);
+            appStorage.setSync('lumina_auth_user_session', JSON.stringify(fallbackUser));
+            setSuccessNotice('Account created in local workspace! Welcome to LUMINA.');
+            setTimeout(() => {
+              onAuthSuccess(fallbackUser);
+              onClose();
+            }, 500);
+            return;
+          }
+          setErrorMessage(error);
+          return;
+        }
+
         if (user) {
           setSuccessNotice('Account created successfully! Welcome to LUMINA.');
           setTimeout(() => {
             onAuthSuccess(user);
             onClose();
-          }, 600);
+          }, 500);
         } else {
           setSuccessNotice('Registration received! You can now log in.');
           setMode('signin');
         }
       } else {
         const { user, error } = await signInWithEmail(email, password);
-        if (error) throw error;
+        if (error) {
+          if (isNetworkError(error)) {
+            const fallbackUser = getOrCreateLocalUser(email, email.split('@')[0], password);
+            appStorage.setSync('lumina_auth_user_session', JSON.stringify(fallbackUser));
+            setSuccessNotice(`Welcome back, ${fallbackUser.fullName || 'Scholar'}!`);
+            setTimeout(() => {
+              onAuthSuccess(fallbackUser);
+              onClose();
+            }, 500);
+            return;
+          }
+          setErrorMessage(error);
+          return;
+        }
+
         if (user) {
           setSuccessNotice(`Welcome back, ${user.fullName || 'Scholar'}!`);
           setTimeout(() => {
@@ -76,8 +105,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         }
       }
     } catch (err: unknown) {
-      console.error('Auth error:', err);
-      const msg = err instanceof Error ? err.message : 'Authentication failed. Please check credentials.';
+      if (isNetworkError(err)) {
+        console.warn('Network auth failed, switching to local workspace user:', err);
+        const fallbackUser = getOrCreateLocalUser(email, fullName, password);
+        appStorage.setSync('lumina_auth_user_session', JSON.stringify(fallbackUser));
+        setSuccessNotice(`Connected to workspace as ${fallbackUser.fullName}`);
+        setTimeout(() => {
+          onAuthSuccess(fallbackUser);
+          onClose();
+        }, 500);
+        return;
+      }
+      console.warn('Authentication issue:', err);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === 'string'
+          ? err
+          : 'Authentication failed. Please check credentials.';
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
