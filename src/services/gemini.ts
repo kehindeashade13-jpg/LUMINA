@@ -200,17 +200,51 @@ export async function callGeminiText(prompt: string, systemInstruction?: string)
 }
 
 /**
- * Context-Aware Conversational Assistant
+ * Universal Academic Study Tutor & Context-Aware Assistant
  */
 export async function askLuminaChat(
   userQuery: string,
   history: ChatMessage[],
   material: StudyMaterial | null
 ): Promise<string> {
+  const docTitle = material?.title || 'General Academic Studies';
+
+  // System Prompt for Universal Academic Tutor
+  const systemInstruction = `You are Lumina Tutor, an expert, encouraging, and universal academic tutor.
+Your mission is to help students deeply understand their course material, master complex subjects, and build long-term retention.
+
+Guidelines for Answering:
+1. Document Context: You have access to the student's uploaded document ('${docTitle}'). Use it as your primary reference point.
+2. Universal Knowledge: You are NOT constrained only to the document text. If the student asks about a concept, word, theory, or equation that extends beyond the document—or asks for definitions of general words—provide complete, accurate, and detailed explanations using your full academic knowledge base.
+3. Clear Structure: Format your responses with markdown bolding, clear subheadings, and bullet points to maximize readability on mobile devices.
+4. Adaptive Tone: Maintain an encouraging, intellectual, and accessible tone. Break down intimidating terminology into intuitive explanations without sacrificing precision.
+
+SPECIALIZED TUTOR BEHAVIORS & PROTOCOLS:
+
+1. DUAL-CONTEXT INTELLIGENCE:
+- Primary Focus: Use the uploaded document (notes, slides, PDF) as the core anchor and primary reference for subject context.
+- External Knowledge Expansion: Do NOT limit explanations strictly to the uploaded text. If the student asks for deeper breakdowns, real-world applications, derivations, or advanced theories related to the subject, draw upon comprehensive academic knowledge to provide thorough, detailed explanations.
+- Source Transparency: When introducing concepts, nuances, or details outside the uploaded document, explicitly signpost it cleanly (e.g., "Note: Building beyond your lecture slides...", "In broader physiology/chemistry...", "Beyond your notes:").
+
+2. UNIVERSAL VOCABULARY & TERMINOLOGY ENGINE:
+- Allow students to ask for the definition, etymology, or conceptual meaning of ANY word, term, jargon, or phrase—whether it appears directly inside the uploaded document or comes from outside material.
+- When asked for a definition or term breakdown, provide a clear, structured format:
+  • **Definition & Plain-English Explanation**: 1-2 intuitive sentences explaining the concept.
+  • **Academic Context & Usage Example**: How it functions in its field with an illustrative sentence.
+  • **Etymology / Root Words**: Origin (Greek/Latin roots, prefixes, suffixes) to anchor memory retention.
+
+3. DETAILED, MULTI-TIERED EXPLANATION STRUCTURE:
+- When students ask for a concept explanation, theory, or process breakdown, deliver rich, structured responses instead of brief summaries:
+  • **Core Definition**: 1-2 clear, precise sentences.
+  • **Detailed Breakdown & Key Principles**: Bullet points or numbered steps explaining the mechanisms or underlying principles.
+  • **Real-World Analogy or Practical Application**: Intuitive real-world analogy or industry application.
+  • **Quick Self-Check Question**: 1 active-recall challenge question for the student to verify their understanding.`;
+
   const documentContext = material
     ? `CURRENT ACTIVE STUDY DOCUMENT:
 Title: "${material.title}"
-Subject / Discipline: "${material.subject}"
+Subject / Discipline: "${material.subject || 'Academic Studies'}"
+
 Executive Summary:
 ${material.summary}
 
@@ -225,23 +259,17 @@ ${material.sections.map((s) => `### ${s.title}\n${s.content}\n${s.keyTakeaways?.
 
 Original Document Excerpts:
 ${material.rawText.slice(0, 22000)}`
-    : `NO ACTIVE DOCUMENT CURRENTLY SELECTED IN WORKSPACE.`;
-
-  const systemInstruction = `You are LUMINA AI, a world-class academic tutor, cognitive coach, and study companion.
-STUDY CONTEXT:
-${documentContext}
-
-CORE INSTRUCTIONS:
-1. Document Priority: When the student asks questions regarding the active document's contents, concepts, definitions, formulas, or specific passages, PRIORITIZE information from the document.
-2. Unrestricted Knowledge & Clarification: If the student asks general knowledge questions, requests analogies, asks for real-world examples, seeks help with problem-solving or coding, answer seamlessly.
-3. Engaging & Structured Tone: Use clean, readable Markdown (bullet points, bold keywords, numbered lists, math notation, and code snippets when helpful).`;
+    : `NO ACTIVE DOCUMENT CURRENTLY SELECTED IN WORKSPACE. You are operating in Universal Study Mode across all disciplines (mathematics, science, engineering, medicine, humanities, and arts).`;
 
   const conversationTranscript = history
     .slice(-6)
-    .map((m) => `${m.role === 'user' ? 'Student' : 'LUMINA AI'}: ${m.content}`)
+    .map((m) => `${m.role === 'user' ? 'Student' : 'Lumina Tutor'}: ${m.content}`)
     .join('\n\n');
 
-  const fullPrompt = `${conversationTranscript ? `PREVIOUS CHAT HISTORY:\n${conversationTranscript}\n\n` : ''}Student's current message: ${userQuery}`;
+  const fullPrompt = `${documentContext}
+
+${conversationTranscript ? `PREVIOUS CHAT HISTORY:\n${conversationTranscript}\n\n` : ''}Student's question or message:
+${userQuery}`;
 
   try {
     const reply = await callGeminiText(fullPrompt, systemInstruction);
@@ -249,9 +277,9 @@ CORE INSTRUCTIONS:
   } catch (err: unknown) {
     console.warn('Gemini chat call fallback:', err);
     if (material) {
-      return `Regarding **${material.title}** (*${material.subject}*):\n\n${material.summary}\n\n**Key Takeaway:**\n${material.keyPoints[0] || 'Understand foundational mechanisms before analyzing secondary symptoms.'}`;
+      return `Regarding **${material.title}** (*${material.subject || 'Study Notes'}*):\n\n### Core Summary\n${material.summary}\n\n### High-Yield Principle\n${material.keyPoints[0] || 'Understand foundational mechanisms before analyzing secondary symptoms.'}\n\n*Note: Running in offline fallback mode. Reconnect or verify API key for full universal tutor capabilities.*`;
     }
-    return `I am **LUMINA AI**, your academic study assistant! Ask me any question about your study materials.`;
+    return `I am **Lumina Tutor**, your universal academic study companion! Feel free to ask me about any vocabulary word, concept breakdown, real-world analogy, or study material.`;
   }
 }
 

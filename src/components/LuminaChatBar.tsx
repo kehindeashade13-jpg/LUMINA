@@ -41,7 +41,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         {
           id: `welcome_${material.id}_${Date.now()}`,
           role: 'assistant',
-          content: `Hello! I am **Lumina AI**, your study tutor for **"${truncateTitle(material.title, 32)}"** [badge:${cleanSubj}].\n\nI have indexed the full document text, lesson modules, flashcards, practice questions, and quizzes. You can ask me:\n• Concept explanations, step-by-step breakdowns, or analogies\n• Clarifications on any tricky option or practice question\n• General knowledge and external connections to this topic\n\nHow can I support your study flow today?`,
+          content: `Hello! I am **Lumina Tutor**, your universal academic tutor for **"${truncateTitle(material.title, 32)}"** [badge:${cleanSubj}].\n\nI have indexed your document and can draw upon universal academic knowledge far beyond the text. You can ask me:\n• **Concept Breakdowns**: Multi-tiered explanations with real-world analogies\n• **Universal Vocabulary**: Definitions, academic context & etymology for any term\n• **Extended Knowledge**: Advanced theories, derivations & real-world applications\n• **Active Recall**: Quick self-check questions to test your retention\n\nHow can I support your study flow today?`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -50,7 +50,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         {
           id: `welcome_empty_${Date.now()}`,
           role: 'assistant',
-          content: `Welcome to **Lumina AI**! I am your interactive academic companion.\n\nAsk me any general study question, request active-recall strategies, or upload a document to unlock deep, context-aware analysis.`,
+          content: `Welcome to **Lumina Tutor**! I am your universal academic study companion.\n\nAsk me to define any vocabulary word, unpack complex scientific/mathematical theories, provide real-world analogies, or upload a document to anchor our study session.`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -124,8 +124,8 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         id: 'reset_' + Date.now(),
         role: 'assistant',
         content: material
-          ? `Chat history cleared. Ready for your questions on **"${truncateTitle(material.title, 28)}"** [badge:${cleanSubj}]!`
-          : `Chat cleared. Ask me anything!`,
+          ? `Chat history cleared. Ready for your questions on **"${truncateTitle(material.title, 28)}"** [badge:${cleanSubj}] or any universal academic topic!`
+          : `Chat cleared. Ask me anything across any subject or vocabulary term!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -137,19 +137,22 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Quick suggestion pills with truncated document titles
+  // Quick suggestion pills with truncated document titles & universal capabilities
   const shortDocTitle = material ? truncateTitle(material.title, 18) : '';
   const suggestions = material
     ? [
-        `Summarize "${shortDocTitle}"`,
-        `Give me a real-world analogy for the core concept`,
-        `Explain the toughest practice question`,
-        `Explain the most difficult part simply`,
+        `Explain the core concept with a real-world analogy`,
+        `Define key terms & etymology in "${shortDocTitle}"`,
+        `Give a multi-tiered breakdown of the hardest topic`,
+        `Beyond the slides: How does this apply in the real world?`,
+        `Test my knowledge with an active-recall question`,
       ]
     : [
-        `What is the most effective spaced repetition strategy?`,
-        `How do I study complex academic papers efficiently?`,
-        `Explain the difference between recall and recognition`,
+        `Explain Bayes' Theorem with an intuitive analogy`,
+        `Define Epistemology with etymology & academic usage`,
+        `How does spaced repetition optimize long-term memory?`,
+        `Break down the central dogma of molecular biology`,
+        `What is the difference between active recall and recognition?`,
       ];
 
   // Clean inline markdown parser: strips literal (*Subject*) or [badge:Subject] into a styled badge, and renders **bold** / *italic*
@@ -196,20 +199,53 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
         {paragraphs.map((line, idx) => {
           if (!line.trim()) return <div key={idx} className="h-1.5" />;
 
-          if (line.startsWith('### ')) {
+          // Subheadings (###, ##, ####)
+          if (line.startsWith('### ') || line.startsWith('## ') || line.startsWith('#### ')) {
+            const headingText = line.replace(/^#{2,4}\s+/, '');
             return (
-              <h4 key={idx} className="font-bold text-[#7C3AED] uppercase tracking-wider text-xs mt-2 mb-1">
-                {line.replace('### ', '')}
+              <h4 key={idx} className="font-bold text-[#A78BFA] uppercase tracking-wider text-xs mt-2.5 mb-1 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED]" />
+                {headingText}
               </h4>
             );
           }
 
+          // Numbered list item (e.g. "1. ", "2. ")
+          const numberedMatch = line.trim().match(/^(\d+)\.\s+(.*)$/);
+          if (numberedMatch) {
+            return (
+              <div key={idx} className="flex items-start gap-2 pl-2">
+                <span className="text-[#06B6D4] font-mono text-[11px] font-bold shrink-0 mt-0.5">
+                  {numberedMatch[1]}.
+                </span>
+                <span>{renderInlineStyles(numberedMatch[2])}</span>
+              </div>
+            );
+          }
+
+          // Bullet point items
           if (line.trim().startsWith('• ') || line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
             const cleanLine = line.trim().replace(/^[•\-*]\s+/, '');
             return (
               <div key={idx} className="flex items-start gap-2 pl-2">
                 <span className="text-[#A78BFA] font-bold shrink-0">•</span>
                 <span>{renderInlineStyles(cleanLine)}</span>
+              </div>
+            );
+          }
+
+          // Source Transparency & Signpost callouts
+          if (
+            line.trim().startsWith('Note:') ||
+            line.trim().startsWith('Beyond your notes:') ||
+            line.trim().startsWith('In broader ')
+          ) {
+            return (
+              <div
+                key={idx}
+                className="p-2.5 rounded-xl bg-[#06B6D4]/10 border-l-2 border-[#06B6D4] text-[#E0F2FE] text-[11px] my-1.5"
+              >
+                {renderInlineStyles(line)}
               </div>
             );
           }
@@ -252,7 +288,7 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
                   </span>
                 </div>
                 <p className="text-[11px] text-[#9CA3AF] truncate">
-                  {material ? `Context: ${truncateTitle(material.title, 26)}` : 'General Academic Knowledge'}
+                  {material ? `Context: ${truncateTitle(material.title, 24)} • Universal Mode` : 'Universal Academic Mode'}
                 </p>
               </div>
             </div>
@@ -390,8 +426,8 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
                 type="text"
                 placeholder={
                   material
-                    ? `Ask about "${truncateTitle(material.title, 18)}"...`
-                    : 'Ask a study question...'
+                    ? `Ask Lumina Tutor about "${truncateTitle(material.title, 18)}" or any term...`
+                    : 'Ask any academic question, term, or concept...'
                 }
                 value={inputQuery}
                 onChange={(e) => setInputQuery(e.target.value)}
@@ -427,3 +463,6 @@ export const LuminaChatBar: React.FC<LuminaChatBarProps> = ({ material }) => {
     </>
   );
 };
+
+export const LuminaTutorChat = LuminaChatBar;
+export default LuminaChatBar;
