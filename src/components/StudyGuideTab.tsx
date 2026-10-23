@@ -18,13 +18,14 @@ import {
   Eye,
   EyeOff,
   RotateCcw,
+  Network,
 } from 'lucide-react';
-import { StudyMaterial, PracticeQuestion } from '../types/study';
+import { StudyMaterial, PracticeQuestion, ActiveTab } from '../types/study';
 import { calculateReadTime } from '../utils/formatters';
 
 interface StudyGuideTabProps {
   material: StudyMaterial | null;
-  onNavigateToTab: (tab: 'flashcards' | 'quiz' | 'documents') => void;
+  onNavigateToTab: (tab: ActiveTab) => void;
 }
 
 /**
@@ -339,6 +340,15 @@ export const StudyGuideTab: React.FC<StudyGuideTabProps> = ({ material, onNaviga
             <span>Key Concepts & Glossary ({material.glossary.length})</span>
           </button>
         </div>
+
+        <button
+          onClick={() => onNavigateToTab('mindmap')}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#161922] hover:bg-[#1E222D] text-[#06B6D4] border border-[#262B36] hover:border-[#06B6D4] transition shrink-0 shadow-sm"
+          title="Open Visual Concept Mind Map"
+        >
+          <Network className="w-3.5 h-3.5" />
+          <span>Interactive Mind Map</span>
+        </button>
       </div>
 
       {/* SUBTAB 1: Step-by-Step Lessons & Executive Summary */}

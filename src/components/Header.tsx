@@ -13,6 +13,7 @@ import {
   Search,
   X,
   FileCheck,
+  Network,
 } from 'lucide-react';
 import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
 import LuminaLogo from './LuminaLogo';
@@ -93,6 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
   const navItems: { id: ActiveTab; label: string; mobileLabel: string; icon: React.FC<{ className?: string }> }[] = [
     { id: 'documents', label: 'Docs', mobileLabel: 'Docs', icon: BookOpen },
     { id: 'notes', label: 'Notes', mobileLabel: 'Notes', icon: FileText },
+    { id: 'mindmap', label: 'Mind Map', mobileLabel: 'Map', icon: Network },
     { id: 'flashcards', label: 'Cards', mobileLabel: 'Cards', icon: Layers },
     { id: 'quiz', label: 'Quiz', mobileLabel: 'Quiz', icon: HelpCircle },
   ];
@@ -459,10 +461,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           )}
 
-          {/* Bottom Bar: High-Contrast Filter Tabs (Docs, Notes, Cards, Quiz) */}
+          {/* Bottom Bar: High-Contrast Filter Tabs (Docs, Notes, Map, Cards, Quiz) */}
           <nav
             aria-label="Mobile study category tabs"
-            className="grid grid-cols-4 gap-1.5 bg-[#0D0F12] p-1 rounded-xl border border-[#262B36] text-xs w-full"
+            className="grid grid-cols-5 gap-1 bg-[#0D0F12] p-1 rounded-xl border border-[#262B36] text-[11px] w-full"
           >
             {navItems.map((item) => {
               const Icon = item.icon;

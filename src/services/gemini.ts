@@ -6,6 +6,8 @@ import {
   StudyMaterial,
   StudyNoteSection,
   ChatMessage,
+  ConceptMindMapData,
+  ConceptModule,
 } from '../types/study';
 import { appStorage } from './storage';
 
@@ -550,6 +552,7 @@ REQUIREMENTS:
         1,
         Math.ceil((rawText ? rawText.trim().split(/\s+/).filter(Boolean).length : 0) / 200)
       ),
+      mindMap: buildFallbackMindMapData(rawText, cleanTitle, sections),
     };
 
     return material;
@@ -1068,5 +1071,163 @@ Every paragraph, subtopic, and operational relationship has been exhaustively di
     practiceQuestions,
     tags: [cleanSubject, 'Core Curriculum', '90 Items', 'High Yield'],
     estimatedReadTimeMinutes: Math.max(1, Math.ceil(wordCount / 200)),
+    mindMap: buildFallbackMindMapData(rawText, cleanTitle, sections),
+  };
+}
+
+/**
+ * Helper function to parse uploaded document text into a structured JSON concept graph schema:
+ * {
+ *   root: string,
+ *   modules: Array<{ id: string, label: string, concepts: string[] }>
+ * }
+ */
+export async function parseConceptMindMap(
+  rawText: string,
+  title?: string,
+  sections?: StudyNoteSection[]
+): Promise<ConceptMindMapData> {
+  const prompt = `You are Lumina Mind Map Architect. Extract a clear hierarchical knowledge graph from the following study material.
+
+DOCUMENT TITLE: ${title || 'Study Document'}
+DOCUMENT CONTENT:
+${(rawText || '').slice(0, 7000)}
+
+${
+  sections && sections.length > 0
+    ? `EXISTING SECTIONS/MODULES:\n${sections.map((s, i) => `${i + 1}. ${s.title}`).join('\n')}`
+    : ''
+}
+
+Format as a single JSON object with EXACTLY this structure:
+{
+  "root": "Core Document Title / High-Level Subject (e.g., BIO 203 General Physiology)",
+  "modules": [
+    {
+      "id": "mod_1",
+      "label": "Module / Major Lecture Topic (e.g., Cellular Membrane Dynamics)",
+      "concepts": [
+        "High-Yield Concept 1 (e.g., Lipid Bilayer Selectivity)",
+        "High-Yield Concept 2 (e.g., Sodium-Potassium ATPase)",
+        "High-Yield Concept 3 (e.g., Electrochemical Gradient)",
+        "High-Yield Concept 4 (e.g., Osmotic Pressure & Tonicity)"
+      ]
+    }
+  ]
+}
+
+REQUIREMENTS:
+1. Provide between 3 to 6 primary lecture modules.
+2. Under each module, provide between 3 to 6 high-yield key concepts, formulas, or operational definitions.
+3. Every label and concept should be crisp, academic, concise (2-6 words), and directly extracted from or relevant to the text.
+4. Output valid JSON only.`;
+
+  try {
+    const rawJson = await callGeminiApi(prompt);
+    const cleaned = cleanJsonString(rawJson);
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed.root === 'string' && Array.isArray(parsed.modules)) {
+      const validModules: ConceptModule[] = parsed.modules.map((m: any, idx: number) => ({
+        id: m.id || `mod_${idx + 1}`,
+        label: (m.label || `Module ${idx + 1}`).trim(),
+        concepts: Array.isArray(m.concepts)
+          ? m.concepts.map((c: any) => String(c).trim()).filter(Boolean)
+          : ['Core Principle', 'Key Mechanism', 'Standard Model'],
+      }));
+
+      if (validModules.length > 0) {
+        return {
+          root: parsed.root.trim() || title || 'Core Subject',
+          modules: validModules,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('AI Mind map extraction failed or offline, building high-yield fallback graph:', err);
+  }
+
+  return buildFallbackMindMapData(rawText, title, sections);
+}
+
+/**
+ * Builds a deterministic, rich ConceptMindMapData structure from study material sections, glossary, and key points.
+ */
+export function buildFallbackMindMapData(
+  rawText: string,
+  title?: string,
+  sections?: StudyNoteSection[]
+): ConceptMindMapData {
+  const rootTitle = title?.trim() || 'Core Curriculum';
+
+  if (sections && sections.length > 0) {
+    const modules: ConceptModule[] = sections.slice(0, 6).map((sec, idx) => {
+      const label = sec.title.replace(/^Module \d+:\s*/, '').replace(/^###\s*/, '').trim() || `Module ${idx + 1}`;
+      const concepts: string[] = [];
+
+      // Extract bold terms from section content
+      const boldMatches = sec.content.match(/\*\*([^*]+)\*\*/g);
+      if (boldMatches) {
+        boldMatches.forEach((m) => {
+          const clean = m.replace(/\*\*/g, '').replace(/:\s*$/, '').trim();
+          if (clean.length > 2 && clean.length < 35 && !concepts.includes(clean)) {
+            concepts.push(clean);
+          }
+        });
+      }
+
+      // Add key takeaways if concepts are few
+      if (sec.keyTakeaways && sec.keyTakeaways.length > 0) {
+        sec.keyTakeaways.forEach((kt) => {
+          const phrase = kt.split(/[:—–,-]/)[0]?.trim();
+          if (phrase && phrase.length > 2 && phrase.length < 35 && !concepts.includes(phrase)) {
+            concepts.push(phrase);
+          }
+        });
+      }
+
+      // Default concepts if not enough parsed
+      const defaults = [
+        'Foundational Mechanics',
+        'Operational Equilibrium',
+        'Boundary Dynamics',
+        'Quantitative Relationships',
+      ];
+      while (concepts.length < 3) {
+        concepts.push(defaults[concepts.length] || `Core Principle ${concepts.length + 1}`);
+      }
+
+      return {
+        id: `mod_${idx + 1}`,
+        label,
+        concepts: concepts.slice(0, 5),
+      };
+    });
+
+    return {
+      root: rootTitle,
+      modules,
+    };
+  }
+
+  // Fallback if no sections
+  return {
+    root: rootTitle,
+    modules: [
+      {
+        id: 'mod_1',
+        label: 'Foundational Principles',
+        concepts: ['First Principles', 'System Boundaries', 'Baseline State', 'Governing Axioms'],
+      },
+      {
+        id: 'mod_2',
+        label: 'Mechanisms & Dynamics',
+        concepts: ['Causal Interactions', 'Feedback Loops', 'Equilibrium Shift', 'Response Modulation'],
+      },
+      {
+        id: 'mod_3',
+        label: 'Applied Methodologies',
+        concepts: ['Diagnostic Analysis', 'Quantitative Modeling', 'Empirical Verification', 'Boundary Thresholds'],
+      },
+    ],
   };
 }

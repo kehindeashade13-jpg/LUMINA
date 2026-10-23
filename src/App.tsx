@@ -16,6 +16,7 @@ import { StudyGuideTab } from './components/StudyGuideTab';
 import { FlashcardsTab } from './components/FlashcardsTab';
 import { QuizTab } from './components/QuizTab';
 import { DocumentsTab } from './components/DocumentsTab';
+import { ConceptMindMap } from './components/ConceptMindMap';
 import { DocumentUploadModal } from './components/DocumentUploadModal';
 import { AuthModal } from './components/AuthModal';
 import { RecentDocumentsSection } from './components/RecentDocumentsSection';
@@ -412,6 +413,15 @@ export function App() {
               <StudyGuideTab
                 key={`notes_${currentMaterial.id}`}
                 material={currentMaterial}
+                onNavigateToTab={(tab) => setActiveTab(tab)}
+              />
+            )}
+
+            {activeTab === 'mindmap' && currentMaterial && (
+              <ConceptMindMap
+                key={`mindmap_${currentMaterial.id}`}
+                material={currentMaterial}
+                onUpdateMaterial={handleUpdateMaterial}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
               />
             )}

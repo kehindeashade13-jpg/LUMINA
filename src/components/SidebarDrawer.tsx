@@ -11,6 +11,7 @@ import {
   LogIn,
   Clock,
   ChevronRight,
+  Network,
 } from 'lucide-react';
 import { ActiveTab, StudyMaterial, LuminaUser } from '../types/study';
 import LuminaLogo from './LuminaLogo';
@@ -192,6 +193,23 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                   {currentMaterial.title}
                 </span>
               )}
+            </button>
+
+            <button
+              onClick={() => handleNavClick('mindmap')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition ${
+                activeTab === 'mindmap'
+                  ? 'bg-[#7C3AED] text-[#F9FAFB] shadow-sm'
+                  : 'bg-[#161922] text-[#9CA3AF] hover:text-[#F9FAFB] border border-[#262B36]'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Network className="w-4 h-4 text-[#06B6D4]" />
+                <span>Concept Mind Map</span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0D0F12] text-[#06B6D4] border border-[#262B36]">
+                Interactive
+              </span>
             </button>
 
             <button

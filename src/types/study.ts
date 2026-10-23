@@ -44,6 +44,17 @@ export interface GlossaryTerm {
   definition: string;
 }
 
+export interface ConceptModule {
+  id: string;
+  label: string;
+  concepts: string[];
+}
+
+export interface ConceptMindMapData {
+  root: string;
+  modules: ConceptModule[];
+}
+
 export interface StudyMaterial {
   id: string;
   userId?: string;
@@ -69,6 +80,7 @@ export interface StudyMaterial {
   tags: string[];
   estimatedReadTimeMinutes?: number;
   likesCount?: number;
+  mindMap?: ConceptMindMapData;
 }
 
 export interface LuminaUser {
@@ -85,4 +97,4 @@ export interface ChatMessage {
   timestamp: string;
 }
 
-export type ActiveTab = 'notes' | 'flashcards' | 'quiz' | 'documents';
+export type ActiveTab = 'documents' | 'notes' | 'mindmap' | 'flashcards' | 'quiz';
