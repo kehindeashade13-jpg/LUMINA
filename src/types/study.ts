@@ -48,6 +48,7 @@ export interface ConceptModule {
   id: string;
   label: string;
   concepts: string[];
+  flashcards?: Flashcard[];
 }
 
 export interface ConceptMindMapData {

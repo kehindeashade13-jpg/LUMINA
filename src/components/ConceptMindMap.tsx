@@ -3,17 +3,9 @@ import {
   Sparkles,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   RotateCcw,
-  BookOpen,
-  Layers,
-  HelpCircle,
-  FileText,
-  X,
   Search,
-  CheckCircle2,
-  XCircle,
-  ArrowRight,
+  X,
   RefreshCw,
   Compass,
   Lightbulb,
@@ -21,40 +13,19 @@ import {
 import {
   StudyMaterial,
   ConceptMindMapData,
-  ConceptModule,
-  Flashcard,
-  QuizQuestion,
   ActiveTab,
 } from '../types/study';
 import { parseConceptMindMap, buildFallbackMindMapData } from '../services/gemini';
+import {
+  calculateMindMapLayout,
+  NodePosition,
+} from '../utils/nodeLayoutUtils';
+import { ModuleDetailDrawer } from './ModuleDetailDrawer';
 
 interface ConceptMindMapProps {
   material: StudyMaterial;
   onUpdateMaterial?: (material: StudyMaterial) => void;
   onNavigateToTab: (tab: ActiveTab) => void;
-}
-
-interface NodePosition {
-  id: string;
-  type: 'root' | 'module' | 'concept';
-  label: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  moduleId?: string;
-  moduleLabel?: string;
-}
-
-interface EdgeConnection {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  type: 'root-module' | 'module-concept';
 }
 
 export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
@@ -68,7 +39,7 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
   const [transform, setTransform] = useState<{ x: number; y: number; scale: number }>({
     x: 0,
     y: 0,
-    scale: 0.85,
+    scale: 0.8,
   });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -77,21 +48,13 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
   // Search & filter
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Selected node for bottom sheet / drawer
+  // Selected node for detail drawer modal
   const [selectedNode, setSelectedNode] = useState<NodePosition | null>(null);
-
-  // Self-check quiz question state for the selected concept
-  const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
-  const [isQuizRevealed, setIsQuizRevealed] = useState(false);
-
-  // Active flashcard preview index in drawer
-  const [activeCardIndex, setActiveCardIndex] = useState(0);
-  const [isCardFlipped, setIsCardFlipped] = useState(false);
 
   // AI Re-generation loading state
   const [isExtracting, setIsExtracting] = useState(false);
 
-  // Mind map data from material or fallback
+  // Mind map structured data from material or fallback
   const mindMapData: ConceptMindMapData = useMemo(() => {
     if (material.mindMap && material.mindMap.modules && material.mindMap.modules.length > 0) {
       return material.mindMap;
@@ -99,133 +62,30 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
     return buildFallbackMindMapData(material.rawText, material.title, material.sections);
   }, [material]);
 
-  // Compute node positions and SVG edges
+  // Compute non-overlapping layout positions with nodeLayoutUtils
+  // Horizontal gap >= 240px (exceeds >= 220px requirement)
+  // Sibling vertical gap >= 96px (exceeds >= 90px requirement)
   const { nodes, edges, canvasWidth, canvasHeight, centerPoint } = useMemo(() => {
-    const rootTitle = mindMapData.root || material.title || 'Core Subject';
-    const modules = mindMapData.modules || [];
+    return calculateMindMapLayout(mindMapData, material.title);
+  }, [mindMapData, material.title]);
 
-    const width = 2200;
-    const height = 1600;
-    const cx = width / 2;
-    const cy = height / 2;
+  // Find the selected module object if a module or concept node is active
+  const selectedModule = useMemo(() => {
+    if (!selectedNode) return null;
+    if (selectedNode.moduleId) {
+      return mindMapData.modules.find((m) => m.id === selectedNode.moduleId) || null;
+    }
+    return null;
+  }, [selectedNode, mindMapData.modules]);
 
-    const nodeList: NodePosition[] = [];
-    const edgeList: EdgeConnection[] = [];
-
-    // 1. Center Root Node
-    const rootWidth = 260;
-    const rootHeight = 90;
-    const rootNode: NodePosition = {
-      id: 'node_root',
-      type: 'root',
-      label: rootTitle,
-      x: cx - rootWidth / 2,
-      y: cy - rootHeight / 2,
-      width: rootWidth,
-      height: rootHeight,
-    };
-    nodeList.push(rootNode);
-
-    // 2. Primary Modules and Sub-concepts
-    const modCount = modules.length;
-    const rx = Math.min(480, Math.max(340, modCount * 80));
-    const ry = Math.min(360, Math.max(280, modCount * 65));
-
-    modules.forEach((mod: ConceptModule, mIdx: number) => {
-      // Angular distribution
-      const theta = (2 * Math.PI * mIdx) / Math.max(1, modCount) - Math.PI / 2;
-      const modWidth = 210;
-      const modHeight = 76;
-      const mx = cx + rx * Math.cos(theta) - modWidth / 2;
-      const my = cy + ry * Math.sin(theta) - modHeight / 2;
-
-      const modNodeId = `mod_${mod.id || mIdx}`;
-      const modNode: NodePosition = {
-        id: modNodeId,
-        type: 'module',
-        label: mod.label,
-        x: mx,
-        y: my,
-        width: modWidth,
-        height: modHeight,
-        moduleId: mod.id || `mod_${mIdx}`,
-        moduleLabel: mod.label,
-      };
-      nodeList.push(modNode);
-
-      // Edge: Root -> Module
-      edgeList.push({
-        id: `edge_root_${modNodeId}`,
-        sourceId: 'node_root',
-        targetId: modNodeId,
-        x1: cx,
-        y1: cy,
-        x2: mx + modWidth / 2,
-        y2: my + modHeight / 2,
-        type: 'root-module',
-      });
-
-      // 3. Sub-nodes (Concepts) branching out
-      const concepts = mod.concepts || [];
-      const cCount = concepts.length;
-      const conceptDist = 240;
-
-      concepts.forEach((concept: string, cIdx: number) => {
-        const spreadSpan = 0.52; // Angular spread
-        const angleOffset =
-          cCount > 1 ? (cIdx - (cCount - 1) / 2) * (spreadSpan / (cCount - 1)) : 0;
-        const conceptTheta = theta + angleOffset;
-
-        const cWidth = 190;
-        const cHeight = 60;
-        const dist = conceptDist + (cIdx % 2 === 0 ? 0 : 35); // Staggering for visual separation
-        const cpx = mx + modWidth / 2 + dist * Math.cos(conceptTheta) * 1.15 - cWidth / 2;
-        const cpy = my + modHeight / 2 + dist * Math.sin(conceptTheta) - cHeight / 2;
-
-        const conceptNodeId = `c_${mod.id}_${cIdx}`;
-        nodeList.push({
-          id: conceptNodeId,
-          type: 'concept',
-          label: concept,
-          x: cpx,
-          y: cpy,
-          width: cWidth,
-          height: cHeight,
-          moduleId: mod.id || `mod_${mIdx}`,
-          moduleLabel: mod.label,
-        });
-
-        // Edge: Module -> Concept
-        edgeList.push({
-          id: `edge_${modNodeId}_${conceptNodeId}`,
-          sourceId: modNodeId,
-          targetId: conceptNodeId,
-          x1: mx + modWidth / 2,
-          y1: my + modHeight / 2,
-          x2: cpx + cWidth / 2,
-          y2: cpy + cHeight / 2,
-          type: 'module-concept',
-        });
-      });
-    });
-
-    return {
-      nodes: nodeList,
-      edges: edgeList,
-      canvasWidth: width,
-      canvasHeight: height,
-      centerPoint: { x: cx, y: cy },
-    };
-  }, [mindMapData, material]);
-
-  // Center the viewport on mount or when canvas size changes
+  // Center the viewport on mount or when canvas changes
   const centerCanvas = useCallback(() => {
     if (!containerRef.current) return;
     const { clientWidth, clientHeight } = containerRef.current;
-    const scale = clientWidth < 640 ? 0.5 : clientWidth < 1024 ? 0.7 : 0.85;
-    const x = clientWidth / 2 - centerPoint.x * scale;
-    const y = clientHeight / 2 - centerPoint.y * scale;
-    setTransform({ x, y, scale });
+    const initialScale = clientWidth < 640 ? 0.45 : clientWidth < 1024 ? 0.65 : 0.78;
+    const x = clientWidth / 2 - centerPoint.x * initialScale;
+    const y = clientHeight / 2 - centerPoint.y * initialScale;
+    setTransform({ x, y, scale: initialScale });
   }, [centerPoint]);
 
   useEffect(() => {
@@ -234,7 +94,7 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
 
   // Handle Pan Dragging (Mouse)
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only drag on canvas background
+    // Prevent canvas drag when clicking interactive cards
     if ((e.target as HTMLElement).closest('.mindmap-interactive-node')) return;
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX - transform.x, y: e.clientY - transform.y };
@@ -321,15 +181,6 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
     setTransform((prev) => ({ ...prev, scale: Math.max(0.35, prev.scale * 0.8) }));
   };
 
-  // Trigger Node Selection and Reset Drawer Details
-  const handleSelectNode = (node: NodePosition) => {
-    setSelectedNode(node);
-    setSelectedQuizOption(null);
-    setIsQuizRevealed(false);
-    setActiveCardIndex(0);
-    setIsCardFlipped(false);
-  };
-
   // Re-generate Mind Map via Gemini AI Extractor
   const handleRegenerateWithAi = async () => {
     setIsExtracting(true);
@@ -370,78 +221,6 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
     return matched;
   }, [searchQuery, nodes]);
 
-  // Linked Flashcards for selected node
-  const linkedFlashcards = useMemo<Flashcard[]>(() => {
-    if (!selectedNode) return [];
-    const term = selectedNode.label.toLowerCase();
-    const moduleTerm = selectedNode.moduleLabel ? selectedNode.moduleLabel.toLowerCase() : '';
-
-    const matches = material.flashcards.filter((fc) => {
-      const front = fc.front.toLowerCase();
-      const back = fc.back.toLowerCase();
-      return (
-        front.includes(term) ||
-        back.includes(term) ||
-        (moduleTerm && (front.includes(moduleTerm) || back.includes(moduleTerm)))
-      );
-    });
-
-    return matches.length > 0 ? matches : material.flashcards.slice(0, 3);
-  }, [selectedNode, material.flashcards]);
-
-  // Linked Quiz Question for selected node
-  const linkedQuizQuestion = useMemo<QuizQuestion | null>(() => {
-    if (!selectedNode) return null;
-    const term = selectedNode.label.toLowerCase();
-
-    const match = material.quiz.find((q) => {
-      const qText = q.question.toLowerCase();
-      const exp = q.explanation.toLowerCase();
-      return qText.includes(term) || exp.includes(term);
-    });
-
-    if (match) return match;
-
-    // Fallback: pick first question or synthesise
-    if (material.quiz.length > 0) {
-      return material.quiz[0];
-    }
-    return null;
-  }, [selectedNode, material.quiz]);
-
-  // Synthesized AI Concept Explanation for the selected node
-  const conceptExplanation = useMemo(() => {
-    if (!selectedNode) return '';
-    const label = selectedNode.label;
-
-    // Check glossary
-    const inGlossary = material.glossary?.find(
-      (g) => g.term.toLowerCase() === label.toLowerCase()
-    );
-    if (inGlossary) return inGlossary.definition;
-
-    // Check sections
-    const inSection = material.sections?.find(
-      (s) =>
-        s.title.toLowerCase().includes(label.toLowerCase()) ||
-        s.content.toLowerCase().includes(label.toLowerCase())
-    );
-    if (inSection) {
-      const takeaway = inSection.keyTakeaways?.[0];
-      if (takeaway) return takeaway;
-    }
-
-    if (selectedNode.type === 'root') {
-      return material.summary || `Primary core document anchoring all modules in ${material.subject}.`;
-    }
-
-    if (selectedNode.type === 'module') {
-      return `Comprehensive lecture module in ${material.subject} analyzing the foundational interactions and operational mechanisms of ${selectedNode.label}.`;
-    }
-
-    return `High-yield concept in ${selectedNode.moduleLabel || material.subject}. Governs operational equilibrium, causal dynamics, and empirical problem solving.`;
-  }, [selectedNode, material]);
-
   return (
     <div className="relative w-full h-[78vh] min-h-[560px] max-h-[860px] bg-[#0D0F12] border border-[#262B36] rounded-2xl overflow-hidden flex flex-col shadow-2xl select-none">
       {/* Top Header Control Bar */}
@@ -456,13 +235,13 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
               <h2 className="text-xs font-bold text-[#F9FAFB] tracking-wide uppercase">
                 Visual Concept Mind Map
               </h2>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0D0F12] border border-[#262B36] text-[#06B6D4]">
-                Interactive
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#06B6D4]/15 border border-[#06B6D4]/40 text-[#06B6D4] font-bold">
+                10 Cards / Module
               </span>
             </div>
             <p className="text-[11px] text-[#9CA3AF] mt-0.5">
-              1 Root · {mindMapData.modules.length} Modules ·{' '}
-              {mindMapData.modules.reduce((acc, m) => acc + (m.concepts?.length || 0), 0)} Concepts
+              1 Root · {mindMapData.modules.length} Primary Modules ·{' '}
+              {mindMapData.modules.reduce((acc, m) => acc + (m.concepts?.length || 0), 0)} Child Concepts
             </p>
           </div>
         </div>
@@ -551,13 +330,13 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
             radial-gradient(circle at 1px 1px, rgba(124, 58, 237, 0.12) 1px, transparent 0),
             radial-gradient(circle at 1px 1px, rgba(38, 43, 54, 0.4) 1px, transparent 0)
           `,
-          backgroundSize: '32px 32px, 16px 16px',
+          backgroundSize: '36px 36px, 18px 18px',
         }}
       >
-        {/* Help Overlay Hint (fades on drag) */}
-        <div className="absolute left-4 bottom-4 z-10 pointer-events-none hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#161922]/85 border border-[#262B36] text-[11px] text-[#9CA3AF] backdrop-blur-sm">
+        {/* Help Overlay Hint */}
+        <div className="absolute left-4 bottom-4 z-10 pointer-events-none hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#161922]/85 border border-[#262B36] text-[11px] text-[#9CA3AF] backdrop-blur-sm shadow-md">
           <Lightbulb className="w-3.5 h-3.5 text-[#06B6D4]" />
-          <span>Pan to explore · Tap any concept to inspect notes, flashcards & quiz</span>
+          <span>Pan & zoom canvas · Tap any module for 10 linked flashcards & quiz</span>
         </div>
 
         {/* Scaled & Panned Transform Layer */}
@@ -576,26 +355,26 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
             height={canvasHeight}
           >
             <defs>
-              {/* Glowing Linear Gradients for Connector Paths */}
-              <linearGradient id="gradient-root-module" x1="0%" y1="0%" x2="100%" y2="100%">
+              {/* Gradients for Flowing Connectors */}
+              <linearGradient id="gradient-root-module" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#7C3AED" stopOpacity="0.85" />
-                <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.7" />
+                <stop offset="100%" stopColor="#06B6D4" stopOpacity="0.8" />
               </linearGradient>
 
-              <linearGradient id="gradient-module-concept" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.75" />
-                <stop offset="100%" stopColor="#7C3AED" stopOpacity="0.5" />
+              <linearGradient id="gradient-module-concept" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#06B6D4" stopOpacity="0.8" />
+                <stop offset="100%" stopColor="#7C3AED" stopOpacity="0.6" />
               </linearGradient>
 
-              <linearGradient id="gradient-active-edge" x1="0%" y1="0%" x2="100%" y2="100%">
+              <linearGradient id="gradient-active-edge" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stopColor="#7C3AED" stopOpacity="1" />
                 <stop offset="50%" stopColor="#06B6D4" stopOpacity="1" />
                 <stop offset="100%" stopColor="#A78BFA" stopOpacity="1" />
               </linearGradient>
 
-              {/* Subtle Drop Shadow / Glow Filter */}
+              {/* Glow Filter */}
               <filter id="glow-connector" x="-20%" y="-20%" width="140%" height="140%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feGaussianBlur stdDeviation="3.5" result="blur" />
                 <feMerge>
                   <feMergeNode in="blur" />
                   <feMergeNode in="SourceGraphic" />
@@ -603,28 +382,18 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
               </filter>
             </defs>
 
-            {/* Connecting Curved Lines */}
+            {/* Connecting Smooth Curved Bézier Lines */}
             {edges.map((edge) => {
               const isSelectedSource = selectedNode?.id === edge.sourceId;
               const isSelectedTarget = selectedNode?.id === edge.targetId;
               const isEdgeHighlighted = isSelectedSource || isSelectedTarget;
-
-              // Cubic Bézier calculation for natural flowing curvature
-              const dx = edge.x2 - edge.x1;
-              const dy = edge.y2 - edge.y1;
-              const cx1 = edge.x1 + dx * 0.45;
-              const cy1 = edge.y1 + dy * 0.1;
-              const cx2 = edge.x1 + dx * 0.55;
-              const cy2 = edge.y2 - dy * 0.1;
-
-              const pathD = `M ${edge.x1} ${edge.y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${edge.x2} ${edge.y2}`;
 
               return (
                 <g key={edge.id}>
                   {/* Subtle Background Glow Line */}
                   {isEdgeHighlighted && (
                     <path
-                      d={pathD}
+                      d={edge.pathD}
                       fill="none"
                       stroke="#7C3AED"
                       strokeWidth={6}
@@ -635,7 +404,7 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
 
                   {/* Primary Rendered Curved Stroke */}
                   <path
-                    d={pathD}
+                    d={edge.pathD}
                     fill="none"
                     stroke={
                       isEdgeHighlighted
@@ -644,18 +413,18 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
                         ? 'url(#gradient-root-module)'
                         : 'url(#gradient-module-concept)'
                     }
-                    strokeWidth={isEdgeHighlighted ? 3 : edge.type === 'root-module' ? 2.2 : 1.6}
-                    strokeDasharray={edge.type === 'module-concept' ? '5 5' : 'none'}
+                    strokeWidth={isEdgeHighlighted ? 3 : edge.type === 'root-module' ? 2.4 : 1.8}
+                    strokeDasharray={edge.type === 'module-concept' ? '6 4' : 'none'}
                     className={isEdgeHighlighted ? 'transition-all duration-300' : ''}
-                    opacity={isEdgeHighlighted ? 1 : selectedNode ? 0.4 : 0.75}
+                    opacity={isEdgeHighlighted ? 1 : selectedNode ? 0.35 : 0.8}
                   />
 
-                  {/* Little pulsing indicator on active edge */}
+                  {/* Pulsing indicator on active edge */}
                   {isEdgeHighlighted && (
                     <circle
                       cx={(edge.x1 + edge.x2) / 2}
                       cy={(edge.y1 + edge.y2) / 2}
-                      r={3.5}
+                      r={4}
                       fill="#06B6D4"
                       className="animate-pulse"
                     />
@@ -677,12 +446,12 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
                   key={node.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSelectNode(node);
+                    setSelectedNode(node);
                   }}
                   className={`mindmap-interactive-node absolute cursor-pointer rounded-2xl p-4 bg-[#161922] border transition-all duration-200 flex flex-col items-center justify-center text-center shadow-2xl ${
                     isSelected
-                      ? 'border-[#7C3AED] ring-4 ring-[#7C3AED]/35 shadow-[0_0_30px_rgba(124,58,237,0.45)] scale-105'
-                      : 'border-[#7C3AED]/60 hover:border-[#7C3AED] hover:shadow-[0_0_20px_rgba(124,58,237,0.25)]'
+                      ? 'border-[#7C3AED] ring-4 ring-[#7C3AED]/40 shadow-[0_0_35px_rgba(124,58,237,0.5)] scale-105'
+                      : 'border-[#7C3AED]/70 hover:border-[#7C3AED] hover:shadow-[0_0_25px_rgba(124,58,237,0.3)]'
                   } ${isMatch ? 'opacity-100' : 'opacity-30'}`}
                   style={{
                     left: `${node.x}px`,
@@ -691,11 +460,11 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
                     height: `${node.height}px`,
                   }}
                 >
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#A78BFA] text-[10px] font-bold uppercase tracking-wider mb-1">
+                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#7C3AED]/20 border border-[#7C3AED]/40 text-[#A78BFA] text-[10px] font-bold uppercase tracking-wider mb-1">
                     <Sparkles className="w-3 h-3 text-[#A78BFA]" />
                     <span>Core Topic</span>
                   </div>
-                  <h1 className="text-xs font-bold text-[#F9FAFB] line-clamp-2 px-1 leading-snug">
+                  <h1 className="text-xs sm:text-sm font-bold text-[#F9FAFB] line-clamp-2 px-1 leading-snug">
                     {node.label}
                   </h1>
                 </div>
@@ -709,12 +478,12 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
                   key={node.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleSelectNode(node);
+                    setSelectedNode(node);
                   }}
-                  className={`mindmap-interactive-node absolute cursor-pointer rounded-xl p-3 bg-[#161922] border transition-all duration-200 flex flex-col justify-between shadow-lg ${
+                  className={`mindmap-interactive-node absolute cursor-pointer rounded-xl p-3.5 bg-[#161922] border transition-all duration-200 flex flex-col justify-between shadow-xl ${
                     isSelected
-                      ? 'border-[#7C3AED] ring-3 ring-[#7C3AED]/40 shadow-[0_0_25px_rgba(124,58,237,0.4)] scale-105'
-                      : 'border-[#262B36] hover:border-[#7C3AED] hover:shadow-[0_0_15px_rgba(124,58,237,0.2)]'
+                      ? 'border-[#7C3AED] ring-3 ring-[#7C3AED]/50 shadow-[0_0_30px_rgba(124,58,237,0.45)] scale-105'
+                      : 'border-[#262B36] hover:border-[#7C3AED] hover:shadow-[0_0_18px_rgba(124,58,237,0.25)]'
                   } ${isMatch ? 'opacity-100' : 'opacity-30'}`}
                   style={{
                     left: `${node.x}px`,
@@ -724,12 +493,12 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
                   }}
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-semibold text-[#A78BFA] uppercase tracking-wider flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED]" />
-                      Module
+                    <span className="text-[10px] font-bold text-[#06B6D4] uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
+                      Primary Module
                     </span>
-                    <span className="text-[10px] text-[#9CA3AF] font-mono">
-                      {node.label.length > 20 ? `${node.label.slice(0, 18)}...` : ''}
+                    <span className="text-[10px] text-[#A78BFA] font-bold bg-[#7C3AED]/15 px-1.5 py-0.5 rounded border border-[#7C3AED]/30">
+                      10 Cards
                     </span>
                   </div>
                   <h3 className="text-xs font-bold text-[#F9FAFB] line-clamp-2 leading-tight">
@@ -739,18 +508,18 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
               );
             }
 
-            // 3. Sub-Node (Concept / Term) Card
+            // 3. Sub-Node (Child Concept / Key Term) Card
             return (
               <div
                 key={node.id}
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleSelectNode(node);
+                  setSelectedNode(node);
                 }}
-                className={`mindmap-interactive-node absolute cursor-pointer rounded-xl px-3 py-2 bg-[#161922] border transition-all duration-200 flex flex-col justify-center shadow-md ${
+                className={`mindmap-interactive-node absolute cursor-pointer rounded-xl px-3.5 py-2.5 bg-[#161922] border transition-all duration-200 flex flex-col justify-center shadow-md ${
                   isSelected
                     ? 'border-[#7C3AED] ring-2 ring-[#7C3AED] shadow-[0_0_20px_rgba(124,58,237,0.5)] scale-105 bg-[#1E222D]'
-                    : 'border-[#262B36] hover:border-[#06B6D4] hover:shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                    : 'border-[#262B36] hover:border-[#06B6D4] hover:shadow-[0_0_14px_rgba(6,182,212,0.25)]'
                 } ${isMatch ? 'opacity-100' : 'opacity-30'}`}
                 style={{
                   left: `${node.x}px`,
@@ -759,12 +528,12 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
                   height: `${node.height}px`,
                 }}
               >
-                <div className="flex items-center gap-1.5 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4] shrink-0" />
                   <p className="text-xs font-medium text-[#F9FAFB] truncate">{node.label}</p>
                 </div>
                 {node.moduleLabel && (
-                  <p className="text-[10px] text-[#9CA3AF] truncate mt-0.5 pl-3">
+                  <p className="text-[10px] text-[#9CA3AF] truncate mt-0.5 pl-3.5">
                     {node.moduleLabel}
                   </p>
                 )}
@@ -774,222 +543,15 @@ export const ConceptMindMap: React.FC<ConceptMindMapProps> = ({
         </div>
       </div>
 
-      {/* Concept Inspection Bottom Sheet / Drawer */}
-      {selectedNode && (
-        <div className="absolute inset-x-0 bottom-0 z-30 max-h-[72%] bg-[#161922] border-t border-[#262B36] rounded-t-2xl shadow-2xl flex flex-col animate-in slide-in-from-bottom duration-200">
-          {/* Drawer Drag Bar & Header */}
-          <div className="p-3.5 pb-2.5 border-b border-[#262B36] flex items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shrink-0 ${
-                  selectedNode.type === 'root'
-                    ? 'bg-[#7C3AED]/20 text-[#A78BFA] border border-[#7C3AED]/40'
-                    : selectedNode.type === 'module'
-                    ? 'bg-[#06B6D4]/20 text-[#06B6D4] border border-[#06B6D4]/40'
-                    : 'bg-[#10B981]/20 text-[#10B981] border border-[#10B981]/40'
-                }`}
-              >
-                {selectedNode.type === 'root'
-                  ? 'Core Topic'
-                  : selectedNode.type === 'module'
-                  ? 'Primary Module'
-                  : 'Key Concept'}
-              </span>
-
-              <h2 className="text-sm font-bold text-[#F9FAFB] truncate">{selectedNode.label}</h2>
-
-              {selectedNode.moduleLabel && (
-                <span className="hidden md:inline text-xs text-[#9CA3AF] truncate">
-                  in {selectedNode.moduleLabel}
-                </span>
-              )}
-            </div>
-
-            <button
-              onClick={() => setSelectedNode(null)}
-              aria-label="Close Concept Drawer"
-              className="p-1 rounded-lg text-[#9CA3AF] hover:text-[#F9FAFB] hover:bg-[#0D0F12] transition shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Drawer Body - Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* 1. AI Concept Explanation Card */}
-            <div className="p-3.5 rounded-xl bg-[#0D0F12] border border-[#262B36]">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#A78BFA] mb-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Concept Breakdown</span>
-              </div>
-              <p className="text-xs text-[#E5E7EB] leading-relaxed">{conceptExplanation}</p>
-            </div>
-
-            {/* 2-Column Grid on larger screens: Linked Flashcard & Self-Check Quiz */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Linked Flashcard Section */}
-              <div className="p-3.5 rounded-xl bg-[#0D0F12] border border-[#262B36] flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-[#06B6D4] flex items-center gap-1.5">
-                      <Layers className="w-3.5 h-3.5" />
-                      <span>Linked Flashcards ({linkedFlashcards.length})</span>
-                    </span>
-                    <button
-                      onClick={() => onNavigateToTab('flashcards')}
-                      className="text-[11px] text-[#A78BFA] hover:text-[#F9FAFB] font-medium flex items-center gap-1"
-                    >
-                      <span>Study All</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {linkedFlashcards.length > 0 ? (
-                    <div
-                      onClick={() => setIsCardFlipped(!isCardFlipped)}
-                      className="cursor-pointer p-4 rounded-xl bg-[#161922] border border-[#262B36] hover:border-[#7C3AED] transition text-left min-h-[110px] flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] mb-1">
-                        <span>Card {activeCardIndex + 1} of {linkedFlashcards.length}</span>
-                        <span className="text-[#06B6D4]">{isCardFlipped ? 'Answer' : 'Tap to Flip'}</span>
-                      </div>
-                      <p className="text-xs text-[#F9FAFB] font-medium leading-relaxed">
-                        {isCardFlipped
-                          ? linkedFlashcards[activeCardIndex].back
-                          : linkedFlashcards[activeCardIndex].front}
-                      </p>
-                      <span className="text-[10px] text-[#9CA3AF] mt-2 block">
-                        {isCardFlipped ? 'Tap to view prompt' : 'Tap card to check definition'}
-                      </span>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[#9CA3AF] py-4 text-center">
-                      No direct cards for this term.
-                    </p>
-                  )}
-                </div>
-
-                {linkedFlashcards.length > 1 && (
-                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#262B36]">
-                    <button
-                      onClick={() => {
-                        setIsCardFlipped(false);
-                        setActiveCardIndex((prev) =>
-                          prev === 0 ? linkedFlashcards.length - 1 : prev - 1
-                        );
-                      }}
-                      className="text-[11px] text-[#9CA3AF] hover:text-[#F9FAFB] px-2 py-1 rounded bg-[#161922] border border-[#262B36]"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-[11px] text-[#9CA3AF] font-mono">
-                      {activeCardIndex + 1} / {linkedFlashcards.length}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setIsCardFlipped(false);
-                        setActiveCardIndex((prev) =>
-                          prev === linkedFlashcards.length - 1 ? 0 : prev + 1
-                        );
-                      }}
-                      className="text-[11px] text-[#9CA3AF] hover:text-[#F9FAFB] px-2 py-1 rounded bg-[#161922] border border-[#262B36]"
-                    >
-                      Next Card
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Quick Self-Check Quiz Question */}
-              <div className="p-3.5 rounded-xl bg-[#0D0F12] border border-[#262B36] flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold text-[#10B981] flex items-center gap-1.5">
-                      <HelpCircle className="w-3.5 h-3.5" />
-                      <span>Quick Self-Check</span>
-                    </span>
-                    <button
-                      onClick={() => onNavigateToTab('quiz')}
-                      className="text-[11px] text-[#A78BFA] hover:text-[#F9FAFB] font-medium flex items-center gap-1"
-                    >
-                      <span>Full Quiz</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {linkedQuizQuestion ? (
-                    <div>
-                      <p className="text-xs text-[#F9FAFB] font-semibold mb-2.5">
-                        {linkedQuizQuestion.question}
-                      </p>
-
-                      <div className="space-y-1.5">
-                        {linkedQuizQuestion.options.slice(0, 4).map((opt, oIdx) => {
-                          const isSelected = selectedQuizOption === oIdx;
-                          const isCorrect = oIdx === linkedQuizQuestion.correctAnswerIndex;
-                          const showOutcome = isQuizRevealed;
-
-                          let btnStyle = 'bg-[#161922] border-[#262B36] text-[#9CA3AF] hover:border-[#7C3AED] hover:text-[#F9FAFB]';
-                          if (showOutcome) {
-                            if (isCorrect) {
-                              btnStyle = 'bg-emerald-950/40 border-emerald-500/60 text-emerald-200';
-                            } else if (isSelected && !isCorrect) {
-                              btnStyle = 'bg-red-950/40 border-red-500/60 text-red-200';
-                            }
-                          } else if (isSelected) {
-                            btnStyle = 'bg-[#7C3AED]/20 border-[#7C3AED] text-[#F9FAFB]';
-                          }
-
-                          return (
-                            <button
-                              key={oIdx}
-                              onClick={() => {
-                                setSelectedQuizOption(oIdx);
-                                setIsQuizRevealed(true);
-                              }}
-                              className={`w-full text-left px-2.5 py-1.5 rounded-lg border text-xs transition flex items-center justify-between ${btnStyle}`}
-                            >
-                              <span className="truncate pr-2">{opt}</span>
-                              {showOutcome && isCorrect && (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              )}
-                              {showOutcome && isSelected && !isCorrect && (
-                                <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-
-                      {isQuizRevealed && (
-                        <p className="text-[11px] text-[#9CA3AF] mt-2 bg-[#161922] p-2 rounded-lg border border-[#262B36]">
-                          <strong className="text-[#F9FAFB]">Explanation:</strong>{' '}
-                          {linkedQuizQuestion.explanation}
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-[#9CA3AF] py-4 text-center">
-                      No self-check quiz available.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-[#262B36] flex items-center justify-between">
-                  <span className="text-[10px] text-[#9CA3AF]">Active recall check</span>
-                  <button
-                    onClick={() => onNavigateToTab('notes')}
-                    className="text-[11px] text-[#A78BFA] hover:text-[#F9FAFB] font-medium flex items-center gap-1"
-                  >
-                    <FileText className="w-3 h-3" />
-                    <span>Read in Notes</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Upgraded Primary Module Detail Drawer Modal with Smooth Backdrop Blur & 10 Linked Flashcards */}
+      <ModuleDetailDrawer
+        isOpen={Boolean(selectedNode)}
+        onClose={() => setSelectedNode(null)}
+        node={selectedNode}
+        module={selectedModule}
+        material={material}
+        onNavigateToTab={onNavigateToTab}
+      />
     </div>
   );
 };

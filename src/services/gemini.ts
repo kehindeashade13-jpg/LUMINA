@@ -1111,6 +1111,15 @@ Format as a single JSON object with EXACTLY this structure:
         "High-Yield Concept 2 (e.g., Sodium-Potassium ATPase)",
         "High-Yield Concept 3 (e.g., Electrochemical Gradient)",
         "High-Yield Concept 4 (e.g., Osmotic Pressure & Tonicity)"
+      ],
+      "flashcards": [
+        {
+          "id": "fc_m1_1",
+          "front": "Active recall question 1 for this module",
+          "back": "Detailed conceptual answer 1",
+          "hint": "Key principle",
+          "difficulty": "medium"
+        }
       ]
     }
   ]
@@ -1119,21 +1128,40 @@ Format as a single JSON object with EXACTLY this structure:
 REQUIREMENTS:
 1. Provide between 3 to 6 primary lecture modules.
 2. Under each module, provide between 3 to 6 high-yield key concepts, formulas, or operational definitions.
-3. Every label and concept should be crisp, academic, concise (2-6 words), and directly extracted from or relevant to the text.
-4. Output valid JSON only.`;
+3. For EACH primary module, provide 10 high-yield linked flashcards ("flashcards" array with 10 items) testing mastery of that module's concepts.
+4. Every label and concept should be crisp, academic, concise (2-6 words), and directly extracted from or relevant to the text.
+5. Output valid JSON only.`;
 
   try {
     const rawJson = await callGeminiApi(prompt);
     const cleaned = cleanJsonString(rawJson);
     const parsed = JSON.parse(cleaned);
     if (parsed && typeof parsed.root === 'string' && Array.isArray(parsed.modules)) {
-      const validModules: ConceptModule[] = parsed.modules.map((m: any, idx: number) => ({
-        id: m.id || `mod_${idx + 1}`,
-        label: (m.label || `Module ${idx + 1}`).trim(),
-        concepts: Array.isArray(m.concepts)
+      const validModules: ConceptModule[] = parsed.modules.map((m: any, idx: number) => {
+        const modId = m.id || `mod_${idx + 1}`;
+        const modLabel = (m.label || `Module ${idx + 1}`).trim();
+        const concepts = Array.isArray(m.concepts)
           ? m.concepts.map((c: any) => String(c).trim()).filter(Boolean)
-          : ['Core Principle', 'Key Mechanism', 'Standard Model'],
-      }));
+          : ['Core Principle', 'Key Mechanism', 'Standard Model'];
+
+        // Parse linked flashcards if provided by AI
+        const parsedFlashcards: Flashcard[] = Array.isArray(m.flashcards)
+          ? m.flashcards.slice(0, 10).map((fc: any, fcIdx: number) => ({
+              id: fc.id || `fc_${modId}_${fcIdx + 1}`,
+              front: String(fc.front || `What is the significance of concept ${fcIdx + 1} in ${modLabel}?`).trim(),
+              back: String(fc.back || `Core operational dynamic regulating equilibrium and behavior in ${modLabel}.`).trim(),
+              hint: fc.hint ? String(fc.hint).trim() : `Focus on ${concepts[fcIdx % concepts.length] || modLabel}`,
+              difficulty: (['easy', 'medium', 'hard'].includes(fc.difficulty) ? fc.difficulty : 'medium') as any,
+            }))
+          : [];
+
+        return {
+          id: modId,
+          label: modLabel,
+          concepts,
+          flashcards: parsedFlashcards.length > 0 ? parsedFlashcards : undefined,
+        };
+      });
 
       if (validModules.length > 0) {
         return {
