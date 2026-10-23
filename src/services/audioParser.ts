@@ -1,5 +1,4 @@
 import { getGeminiApiKey } from './gemini';
-import { GoogleGenAI } from '@google/genai';
 
 export interface AudioTranscriptionResult {
   transcript: string;
@@ -87,37 +86,46 @@ Output the complete, structured transcription with clean paragraphs.`;
     console.warn('Server audio transcription failed, trying client fallback:', serverErr);
   }
 
-  // 2. Fallback to client key
+  // 2. Fallback to client key with direct REST (gemini-3.5-transcribe)
   const clientKey = getGeminiApiKey();
   if (clientKey) {
     try {
-      const ai = new GoogleGenAI({ apiKey: clientKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: promptText },
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-transcribe:generateContent?key=${clientKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
               {
-                inlineData: {
-                  mimeType,
-                  data: base64Audio,
-                },
+                role: 'user',
+                parts: [
+                  { text: promptText },
+                  {
+                    inlineData: {
+                      mimeType,
+                      data: base64Audio,
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-      });
+          }),
+        }
+      );
 
-      if (response && response.text) {
-        return {
-          transcript: response.text.trim(),
-          fileName,
-        };
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          return {
+            transcript: text.trim(),
+            fileName,
+          };
+        }
       }
     } catch (clientErr) {
-      console.warn('Client Gemini audio transcription error:', clientErr);
+      console.warn('Client direct audio transcription error:', clientErr);
     }
   }
 

@@ -29,16 +29,18 @@ export default async function handler(req: any, res: any) {
       },
     });
 
-    const candidateModels = [
-      'gemini-3.1-flash-lite',
-      'gemini-flash-latest',
-      'gemini-3.8-flash',
-      'gemini-3.1-pro-preview',
-    ];
+    const inputContents = contents || prompt;
+    const isAudio = JSON.stringify(inputContents).includes('audio/');
+
+    const candidateModels = isAudio
+      ? ['gemini-3.5-transcribe', 'gemini-3.1-flash-lite', 'gemini-3.8-flash']
+      : [
+          'gemini-3.1-flash-lite',
+          'gemini-flash-latest',
+          'gemini-3.8-flash',
+        ];
     let generatedText: string | undefined;
     let lastError: any = null;
-
-    const inputContents = contents || prompt;
 
     for (const modelName of candidateModels) {
       let attempts = 0;

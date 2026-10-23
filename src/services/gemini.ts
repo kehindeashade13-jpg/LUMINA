@@ -71,11 +71,9 @@ async function callGeminiApi(prompt: string, systemInstruction?: string): Promis
   const clientKey = getGeminiApiKey();
   if (clientKey) {
     const clientCandidates = [
-      'gemini-2.5-flash',
-      'gemini-3.8-flash',
-      'gemini-flash-latest',
       'gemini-3.1-flash-lite',
-      'gemini-3.1-pro-preview',
+      'gemini-flash-latest',
+      'gemini-3.8-flash',
     ];
     let lastClientError: any = null;
 
@@ -160,11 +158,9 @@ export async function callGeminiText(prompt: string, systemInstruction?: string)
   const clientKey = getGeminiApiKey();
   if (clientKey) {
     const clientCandidates = [
-      'gemini-2.5-flash',
-      'gemini-3.8-flash',
-      'gemini-flash-latest',
       'gemini-3.1-flash-lite',
-      'gemini-3.1-pro-preview',
+      'gemini-flash-latest',
+      'gemini-3.8-flash',
     ];
     for (const model of clientCandidates) {
       try {
